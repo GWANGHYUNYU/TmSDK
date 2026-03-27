@@ -1,0 +1,18 @@
+# 녹화 출력 파일
+output/
+
+# 로그 파일
+logs/
+
+# 배포 패키지 (용량이 크고 GitHub Releases에서 별도 다운로드)
+*.whl
+*.deb
+
+# Python 캐시
+__pycache__/
+*.pyc
+*.pyo
+
+# OS
+.DS_Store
+Thumbs.db
