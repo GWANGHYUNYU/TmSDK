@@ -21,11 +21,13 @@ Thermoeye TMC 시리즈 열화상카메라 다중 스트리밍 및 녹화 도구
 
 ```
 python_stream/
-├── multi_cameras.py          # 메인: N대 카메라 동시 스트리밍·녹화 (PyQt5 GUI)
-├── record_camera.py          # 보조: 카메라 1대 단독 녹화 (CLI 인자로 IP 지정)
-├── scan_cameras.py           # 진단: 카메라 탐색·연결 테스트
+├── multi_cameras.py              # 메인: N대 카메라 동시 스트리밍·녹화 (PyQt5 GUI, 단일 ROI)
+├── multi_cameras_multi_roi.py    # 확장: 복수 ROI(Spot/Line/Rect/Ellipse) + 예약 녹화
+├── raw_y16_recorder.py           # Raw Y16 비압축 프레임 저장 (지정 IP 카메라 1대)
+├── record_camera.py              # 보조: 카메라 1대 단독 녹화 (CLI 인자로 IP 지정)
+├── scan_cameras.py               # 진단: 카메라 탐색·연결 테스트
 ├── TmSDK-2.0.0-py3-none-win_amd64.whl   # Windows 전용 Python 바인딩
-└── README.md                 # 이 문서
+└── README.md                     # 이 문서
 ```
 
 > Ubuntu용 `.whl` 및 `.deb` 파일은 TmSDK GitHub Releases에서 별도 다운로드 필요
@@ -274,7 +276,74 @@ max_v = camera.get_temperature(rect_item.get_roi_maxloc().value)
 
 ---
 
-### 4-7. TmSDK GitHub Releases 파일 선택
+### 4-7. 카메라가 탐색되지 않음 (PC 이더넷 IP 미설정)
+
+**증상**
+```bash
+python3 scan_cameras.py
+# [스캔 완료] 0대 발견: []
+```
+또는
+```
+ping 192.168.0.151
+# Destination Host Unreachable
+```
+
+카메라가 물리적으로 연결되어 있고 PoE 전원도 정상인데, `scan_cameras.py`에서 카메라가 하나도 탐색되지 않음
+
+**원인**
+
+카메라 IP가 `192.168.0.151`, `192.168.0.152` 등 `192.168.0.x` 대역을 사용하는데, PC의 이더넷 인터페이스(카메라와 연결된 포트)에 같은 서브넷의 IP가 할당되어 있지 않으면 통신 자체가 불가능합니다.
+
+DHCP 환경에서 PC의 이더넷에 자동으로 `192.168.0.x` 대역 IP가 할당되지 않는 경우, **수동으로 고정 IP를 설정**해야 합니다.
+
+**해결 방법 (Ubuntu 22.04)**
+
+1. 카메라와 연결된 이더넷 인터페이스 이름을 확인합니다:
+   ```bash
+   ip link show
+   # 예: enp7s0, eth0, eno1 등
+   ```
+
+2. 네트워크 설정에서 해당 인터페이스에 수동 IPv4를 설정합니다:
+   ```
+   Settings → Network → 해당 이더넷 → IPv4
+   Method: Manual
+   Address:  192.168.0.100
+   Netmask:  255.255.255.0
+   Gateway:  (비워둠)
+   ```
+   또는 CLI로:
+   ```bash
+   sudo ip addr add 192.168.0.100/24 dev enp7s0
+   ```
+   > CLI 방식은 재부팅 시 초기화됨. 영구 설정은 Netplan 또는 NetworkManager GUI 사용
+
+3. IP 설정 후 카메라와 통신 가능한지 확인합니다:
+   ```bash
+   ping -c 2 192.168.0.151
+   ping -c 2 192.168.0.152
+   ```
+
+**해결 방법 (Windows)**
+
+1. `제어판` → `네트워크 및 인터넷` → `네트워크 및 공유 센터` → `어댑터 설정 변경`
+2. 카메라와 연결된 이더넷 어댑터 우클릭 → `속성`
+3. `인터넷 프로토콜 버전 4 (TCP/IPv4)` 선택 → `속성`
+4. `다음 IP 주소 사용` 선택:
+   ```
+   IP 주소:       192.168.0.100
+   서브넷 마스크:  255.255.255.0
+   기본 게이트웨이: (비워둠)
+   ```
+5. 확인 후 `ping 192.168.0.151`로 통신 확인
+
+> ⚠️ IP 주소는 카메라와 겹치지 않는 값을 사용해야 합니다 (`.151`, `.152` 제외).
+> ⚠️ 인터넷용 이더넷과 카메라용 이더넷이 같은 포트라면, 고정 IP 설정 시 인터넷 연결이 끊길 수 있습니다. 가능하면 카메라 전용 이더넷 포트를 분리하세요.
+
+---
+
+### 4-8. TmSDK GitHub Releases 파일 선택
 
 https://github.com/ThermoEye/TmSDK/releases 에서 버전별로 여러 파일이 제공됨
 
@@ -292,7 +361,7 @@ https://github.com/ThermoEye/TmSDK/releases 에서 버전별로 여러 파일이
 
 ## 5. 실행 방법
 
-### multi_cameras.py (주 사용)
+### multi_cameras.py (단일 ROI)
 
 ```bash
 cd python_stream/
@@ -301,8 +370,44 @@ python3 multi_cameras.py
 
 - GUI가 열리면 자동으로 `CAMERAS` 리스트에 등록된 카메라에 연결 시도
 - 추가 카메라는 상단 IP 입력란에 입력 후 **연결** 버튼 클릭
+- 카메라별 ROI 1개(사각형) 드래그 설정 가능
 
-### record_camera.py (단일 카메라)
+### multi_cameras_multi_roi.py (복수 ROI + 예약 녹화)
+
+```bash
+cd python_stream/
+python3 multi_cameras_multi_roi.py
+```
+
+- `multi_cameras.py`의 모든 기능을 포함하며, 아래 기능이 추가됨:
+  - **복수 ROI**: 카메라당 여러 개의 ROI를 추가 가능 (Spot, Line, Rect, Ellipse)
+  - **ROI 타입 선택**: 콤보박스에서 타입 선택 후 미리보기 화면에서 드래그
+  - **ROI별 온도 측정**: 각 ROI마다 Min / Avg / Max 개별 표시 및 CSV 저장
+  - **ROI 관리**: "마지막 ROI 삭제" / "ROI 전체 초기화" 버튼
+  - **예약 녹화**: 시작/종료 시간 지정, 반복 간격(분 단위) 설정 가능
+    - 1회 예약: 시작~종료 시간 설정 → "예약 녹화 설정" 클릭
+    - 반복 예약: "반복" 체크 + 간격 설정 (예: 60분마다 10분간 녹화)
+    - 남은 시간 카운트다운 실시간 표시
+
+### raw_y16_recorder.py (Raw Y16 비압축 저장)
+
+```bash
+# 기본 (720x480 해상도)
+python3 raw_y16_recorder.py --ip 192.168.0.151
+
+# 저장 폴더 지정
+python3 raw_y16_recorder.py --ip 192.168.0.151 --output ./raw_data
+
+# 카메라 원본 해상도(160x120)로 저장
+python3 raw_y16_recorder.py --ip 192.168.0.151 --native
+```
+
+- 지정한 IP의 카메라 1대에서 Raw Y16 (16-bit) 프레임을 비압축 바이너리로 저장
+- 저장 파일: `.y16raw` (프레임 데이터) + `.y16meta` (JSON 메타데이터)
+- 2 GB 초과 시 자동 파일 분할 (`_part1`, `_part2`, ...)
+- 저장된 데이터에서 픽셀별 온도 복원 가능 (`camera.get_temperature(raw_value)`)
+
+### record_camera.py (단일 카메라 녹화)
 
 ```bash
 python3 record_camera.py --ip 192.168.0.151
@@ -326,19 +431,43 @@ python3 scan_cameras.py
 | 기능 | 설명 |
 |------|------|
 | N대 카메라 동시 스트리밍 | `CAMERAS` 리스트에 등록 또는 런타임 IP 입력으로 추가 |
-| ROI 설정 | 미리보기 화면에서 마우스 드래그 |
+| ROI 설정 | 미리보기 화면에서 마우스 드래그 (카메라당 사각형 1개) |
 | ROI 온도 측정 | Min / Avg / Max 실시간 표시 |
 | 개별 녹화 | 카메라별 **녹화 시작** 버튼 (초록→빨강으로 상태 표시) |
 | 전체 녹화 | 상단 **전체 녹화** 버튼으로 모든 카메라 동시 녹화 시작 |
 | 저장 폴더 설정 | 전역 폴더 + 카메라별 개별 폴더 (개별 설정 우선) |
 | AVI 자동 분할 | 1.4 GB 또는 1시간 초과 시 자동으로 새 파일 생성 |
 | 카메라 자동 재연결 | 연결 끊김 감지 시 자동 재연결 + 녹화 자동 재개 |
-| CSV 기록 | timestamp, min_temp, avg_temp, max_temp |
+| CSV 기록 | timestamp, roi_x, roi_y, roi_w, roi_h, min_temp, avg_temp, max_temp |
 | 로그 파일 | `logs/tmsdk.log` 일별 로테이션, 60일 보관 |
+
+### multi_cameras_multi_roi.py 추가 기능
+
+`multi_cameras.py`의 모든 기능을 포함하며, 아래 기능이 추가됩니다.
+
+| 기능 | 설명 |
+|------|------|
+| 복수 ROI | 카메라당 여러 개의 ROI 추가 가능 |
+| ROI 타입 | Spot(점), Line(선), Rect(사각형), Ellipse(타원) 선택 |
+| ROI별 온도 | 각 ROI마다 Min / Avg / Max 개별 측정·표시·CSV 저장 |
+| ROI 색상 구분 | ROI별로 다른 색상 (노랑, 시안, 빨강 등 8색 순환) |
+| ROI 관리 | "마지막 ROI 삭제" / "ROI 전체 초기화" 버튼 |
+| 예약 녹화 | 시작/종료 시간 지정으로 전체 카메라 자동 녹화·정지 |
+| 반복 녹화 | 반복 체크 + 간격(분) 설정으로 주기적 녹화 (예: 60분마다 10분간) |
+
+### raw_y16_recorder.py 주요 기능
+
+| 기능 | 설명 |
+|------|------|
+| Raw Y16 저장 | 16-bit 원본 프레임을 비압축 바이너리로 저장 |
+| 메타데이터 | `.y16meta` (JSON)에 해상도, FPS, 프레임 수, 타임스탬프 기록 |
+| 원본 해상도 | `--native` 옵션으로 카메라 원본 해상도(160x120) 저장 |
+| 자동 분할 | 2 GB 초과 시 `_part1`, `_part2`... 자동 분할 |
+| 온도 복원 | 저장된 raw 값에서 `get_temperature()`로 픽셀별 온도 계산 가능 |
 
 ### 초기 카메라 설정 변경
 
-`multi_cameras.py` 상단의 `CAMERAS` 리스트를 수정:
+`multi_cameras.py`, `multi_cameras_multi_roi.py` 상단의 `CAMERAS` 리스트를 수정:
 
 ```python
 CAMERAS = [
@@ -350,19 +479,34 @@ CAMERAS = [
 
 ### 녹화 출력 파일
 
+**multi_cameras.py / multi_cameras_multi_roi.py:**
 ```
 output/
-├── 192_168_0_151_20250327_143022.avi   # 영상
-├── 192_168_0_151_20250327_143022.csv   # 온도 로그
+├── 192_168_0_151_20250327_143022.avi   # 영상 (ROI 오버레이 포함)
+├── 192_168_0_151_20250327_143022.csv   # 온도 로그 (ROI별)
 ├── 192_168_0_151_20250327_153022.avi   # 1시간 후 자동 분할
 └── ...
 ```
 
-CSV 형식:
+multi_cameras.py CSV 형식:
 ```
-timestamp,min_temp,avg_temp,max_temp
-2025-03-27 14:30:22.115,28.50,31.20,35.80
-2025-03-27 14:30:22.230,28.50,31.21,35.81
+timestamp,roi_x,roi_y,roi_w,roi_h,min_temp,avg_temp,max_temp
+2025-03-27 14:30:22.115,100,80,200,150,28.50,31.20,35.80
+```
+
+multi_cameras_multi_roi.py CSV 형식 (ROI별 컬럼 동적 생성):
+```
+timestamp,roi0_rect_params,roi0_rect_min,roi0_rect_avg,roi0_rect_max,roi1_spot_params,roi1_spot_min,roi1_spot_avg,roi1_spot_max
+2025-03-27 14:30:22.115,(100,80 200x150),28.50,31.20,35.80,(300,200),29.10,29.10,29.10
+```
+
+**raw_y16_recorder.py:**
+```
+raw_output/
+├── 192_168_0_151_20250327_143022.y16raw    # Raw 프레임 연속 바이너리 (uint16 LE)
+├── 192_168_0_151_20250327_143022.y16meta   # JSON 메타데이터
+├── 192_168_0_151_20250327_153022_part1.y16raw   # 2 GB 초과 시 분할
+└── ...
 ```
 
 ---
@@ -509,5 +653,5 @@ python3 multi_cameras.py
 
 ---
 
-*최종 업데이트: 2025-03-27*
+*최종 업데이트: 2026-04-02*
 *TmSDK 버전: 2.0.0*
