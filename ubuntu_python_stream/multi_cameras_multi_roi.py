@@ -32,12 +32,12 @@ from logging.handlers import TimedRotatingFileHandler
 import cv2
 import numpy as np
 
-from PyQt5.QtCore import QThread, Qt, pyqtSignal, QRect, QPoint, QPointF, QTimer, QDateTime
+from PyQt5.QtCore import QThread, Qt, pyqtSignal, QRect, QPoint, QPointF, QTimer
 from PyQt5.QtGui import QImage, QPixmap, QPainter, QPen, QColor, QFont
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QLabel, QVBoxLayout, QHBoxLayout,
     QGroupBox, QPushButton, QLineEdit, QFileDialog,
-    QScrollArea, QMessageBox, QComboBox, QDateTimeEdit,
+    QScrollArea, QMessageBox, QComboBox,
     QCheckBox, QSpinBox
 )
 
@@ -147,10 +147,8 @@ class RoiItem:
             return f"({self.x1},{self.y1})"
         if self.roi_type == RoiType.Line:
             return f"({self.x1},{self.y1})->({self.x2},{self.y2})"
-        # Rect / Ellipse
-        w = abs(self.x2 - self.x1)
-        h = abs(self.y2 - self.y1)
-        return f"({min(self.x1,self.x2)},{min(self.y1,self.y2)} {w}x{h})"
+        # Rect / Ellipse: x1,y1 = 위치, x2,y2 = 너비,높이
+        return f"({self.x1},{self.y1} {self.x2}x{self.y2})"
 
 
 # ─────────────────────────────────────────────────────────────
@@ -379,22 +377,25 @@ class PreviewLabel(QLabel):
         elif ri.roi_type == RoiType.Line:
             painter.drawLine(ri.x1, ri.y1, ri.x2, ri.y2)
         elif ri.roi_type == RoiType.Rect:
-            r = QRect(
-                min(ri.x1, ri.x2), min(ri.y1, ri.y2),
-                abs(ri.x2 - ri.x1), abs(ri.y2 - ri.y1))
+            # x1,y1 = 좌상단 위치, x2,y2 = 너비,높이
+            r = QRect(ri.x1, ri.y1, ri.x2, ri.y2)
             painter.drawRect(r)
         elif ri.roi_type == RoiType.Ellipse:
-            r = QRect(
-                min(ri.x1, ri.x2), min(ri.y1, ri.y2),
-                abs(ri.x2 - ri.x1), abs(ri.y2 - ri.y1))
+            # x1,y1 = 좌상단 위치, x2,y2 = 너비,높이
+            r = QRect(ri.x1, ri.y1, ri.x2, ri.y2)
             painter.drawEllipse(r)
 
         # 라벨
         painter.setPen(QPen(color))
         font = QFont("Consolas", 9)
         painter.setFont(font)
-        lx = ri.x1 if ri.roi_type == RoiType.Spot else min(ri.x1, ri.x2)
-        ly = (ri.y1 - 4) if ri.roi_type == RoiType.Spot else (min(ri.y1, ri.y2) - 4)
+        if ri.roi_type == RoiType.Spot:
+            lx, ly = ri.x1, ri.y1 - 4
+        elif ri.roi_type == RoiType.Line:
+            lx, ly = min(ri.x1, ri.x2), min(ri.y1, ri.y2) - 4
+        else:
+            # Rect / Ellipse: x1,y1 이 이미 좌상단
+            lx, ly = ri.x1, ri.y1 - 4
         ly = max(ly, 12)
         painter.drawText(lx, ly, f"ROI{idx}")
 
@@ -902,8 +903,11 @@ class MainWindow(QWidget):
         # ── 예약 녹화 상태 ──
         self._schedule_active   = False
         self._schedule_running  = False   # 현재 예약에 의해 녹화 중인지
-        self._schedule_next_start = None  # 다음 녹화 시작 시각
-        self._schedule_next_stop  = None  # 다음 녹화 종료 시각
+        self._sched_start_hour  = 8
+        self._sched_stop_hour   = 19
+        self._sched_use_repeat  = False
+        self._sched_interval    = 60
+        self._sched_rec_duration = 10     # 반복 모드에서 슬롯당 녹화 시간(분)
 
         self._build_ui()
         self._start_initial_scan()
@@ -988,33 +992,32 @@ class MainWindow(QWidget):
         row2.addWidget(btn_connect)
         row2.addStretch()
 
-        # ── 행 3: 예약 녹화 ──────────────────────────────────
-        now = QDateTime.currentDateTime()
-        start_default = now.addSecs(60)  # 1분 뒤
-
-        lbl_start = QLabel("시작:")
+        # ── 행 3: 예약 녹화 (매일 기준 시간대) ─────────────────
+        lbl_start = QLabel("시작 시각:")
         lbl_start.setFont(font)
-        self.dt_start = QDateTimeEdit(start_default)
-        self.dt_start.setDisplayFormat("yyyy-MM-dd HH:mm:ss")
-        self.dt_start.setCalendarPopup(True)
-        self.dt_start.setFixedHeight(BTN_H_TOP)
-        self.dt_start.setFont(font)
+        self.spin_start_hour = QSpinBox()
+        self.spin_start_hour.setRange(0, 23)
+        self.spin_start_hour.setValue(8)
+        self.spin_start_hour.setSuffix(" 시")
+        self.spin_start_hour.setFixedHeight(BTN_H_TOP)
+        self.spin_start_hour.setFont(font)
+        self.spin_start_hour.setEnabled(False)
 
-        lbl_stop = QLabel("종료:")
+        lbl_stop = QLabel("종료 시각:")
         lbl_stop.setFont(font)
-        self.dt_stop = QDateTimeEdit(start_default.addSecs(3600))
-        self.dt_stop.setDisplayFormat("yyyy-MM-dd HH:mm:ss")
-        self.dt_stop.setCalendarPopup(True)
-        self.dt_stop.setFixedHeight(BTN_H_TOP)
-        self.dt_stop.setFont(font)
+        self.spin_stop_hour = QSpinBox()
+        self.spin_stop_hour.setRange(1, 24)
+        self.spin_stop_hour.setValue(19)
+        self.spin_stop_hour.setSuffix(" 시")
+        self.spin_stop_hour.setFixedHeight(BTN_H_TOP)
+        self.spin_stop_hour.setFont(font)
+        self.spin_stop_hour.setEnabled(False)
 
-        self.chk_repeat = QCheckBox("반복")
+        self.chk_repeat = QCheckBox("반복 간격")
         self.chk_repeat.setFont(font)
-        self.chk_repeat.toggled.connect(
-            lambda checked: self.spin_interval.setEnabled(checked))
+        self.chk_repeat.setEnabled(False)
+        self.chk_repeat.toggled.connect(self._on_repeat_toggled)
 
-        lbl_interval = QLabel("간격:")
-        lbl_interval.setFont(font)
         self.spin_interval = QSpinBox()
         self.spin_interval.setRange(1, 1440)
         self.spin_interval.setValue(60)
@@ -1022,6 +1025,17 @@ class MainWindow(QWidget):
         self.spin_interval.setFixedHeight(BTN_H_TOP)
         self.spin_interval.setFont(font)
         self.spin_interval.setEnabled(False)
+
+        lbl_rec_dur = QLabel("녹화 시간:")
+        lbl_rec_dur.setFont(font)
+        self.spin_rec_duration = QSpinBox()
+        self.spin_rec_duration.setRange(1, 1440)
+        self.spin_rec_duration.setValue(10)
+        self.spin_rec_duration.setSuffix(" 분")
+        self.spin_rec_duration.setFixedHeight(BTN_H_TOP)
+        self.spin_rec_duration.setFont(font)
+        self.spin_rec_duration.setEnabled(False)
+        self.lbl_rec_dur = lbl_rec_dur
 
         self.btn_schedule = QPushButton("예약 녹화 설정")
         self.btn_schedule.setFixedSize(200, BTN_H_TOP)
@@ -1039,13 +1053,14 @@ class MainWindow(QWidget):
 
         row3 = QHBoxLayout()
         row3.addWidget(lbl_start)
-        row3.addWidget(self.dt_start)
+        row3.addWidget(self.spin_start_hour)
         row3.addWidget(lbl_stop)
-        row3.addWidget(self.dt_stop)
+        row3.addWidget(self.spin_stop_hour)
         row3.addSpacing(15)
         row3.addWidget(self.chk_repeat)
-        row3.addWidget(lbl_interval)
         row3.addWidget(self.spin_interval)
+        row3.addWidget(self.lbl_rec_dur)
+        row3.addWidget(self.spin_rec_duration)
         row3.addSpacing(15)
         row3.addWidget(self.btn_schedule)
         row3.addWidget(self.lbl_schedule_status)
@@ -1160,42 +1175,68 @@ class MainWindow(QWidget):
                 panel.toggle_record()
 
     # ── 예약 녹화 ──────────────────────────────────────────────
+    def _on_repeat_toggled(self, checked):
+        enabled = checked and self.chk_repeat.isEnabled()
+        self.spin_interval.setEnabled(enabled)
+        self.spin_rec_duration.setEnabled(enabled)
+        self.lbl_rec_dur.setEnabled(enabled)
+
     def _toggle_schedule(self):
         if self._schedule_active:
+            # 예약 활성 → 취소
             self._cancel_schedule()
-        else:
+        elif self.spin_start_hour.isEnabled():
+            # 설정 모드 (SpinBox 활성) → 예약 시작
             self._activate_schedule()
+        else:
+            # 초기 상태 (SpinBox 비활성) → 설정 모드 진입
+            self.spin_start_hour.setEnabled(True)
+            self.spin_stop_hour.setEnabled(True)
+            self.chk_repeat.setEnabled(True)
+            self.spin_interval.setEnabled(self.chk_repeat.isChecked())
+            self.spin_rec_duration.setEnabled(self.chk_repeat.isChecked())
+            self.lbl_rec_dur.setEnabled(self.chk_repeat.isChecked())
+            self.btn_schedule.setText("예약 시작")
+            self.btn_schedule.setStyleSheet(
+                "QPushButton { background-color: #1a7a1a; color: white;"
+                " border-radius: 4px; }"
+                "QPushButton:hover { background-color: #22a522; }"
+            )
+            self.lbl_schedule_status.setText("시간대를 설정한 후 '예약 시작'을 누르세요")
+            self.lbl_schedule_status.setStyleSheet(f"color: #f0c040; font-size: {BASE_FONT_SIZE}px;")
 
     def _activate_schedule(self):
-        start_dt = self.dt_start.dateTime().toPyDateTime()
-        stop_dt  = self.dt_stop.dateTime().toPyDateTime()
-        now      = datetime.now()
+        start_h = self.spin_start_hour.value()
+        stop_h  = self.spin_stop_hour.value()
 
-        if stop_dt <= start_dt:
+        if stop_h <= start_h:
             QMessageBox.warning(self, "시간 오류",
-                                "종료 시간이 시작 시간보다 뒤여야 합니다.")
+                                "종료 시각이 시작 시각보다 뒤여야 합니다.")
             return
 
-        # 반복 모드가 아닌데 종료 시간이 이미 지났으면 경고
-        if stop_dt <= now and not self.chk_repeat.isChecked():
-            QMessageBox.warning(self, "시간 오류",
-                                "종료 시간이 이미 지났습니다.")
+        self._sched_start_hour = start_h
+        self._sched_stop_hour  = stop_h
+        self._sched_use_repeat = self.chk_repeat.isChecked()
+        self._sched_interval   = self.spin_interval.value() if self._sched_use_repeat else 0
+        self._sched_rec_duration = self.spin_rec_duration.value() if self._sched_use_repeat else 0
+
+        if self._sched_use_repeat and self._sched_rec_duration > self._sched_interval:
+            QMessageBox.warning(self, "설정 오류",
+                                "녹화 시간은 반복 간격보다 작거나 같아야 합니다.")
             return
 
-        self._schedule_next_start = start_dt
-        self._schedule_next_stop  = stop_dt
-        self._schedule_active     = True
-        self._schedule_running    = False
+        self._schedule_active  = True
+        self._schedule_running = False
 
-        # 이미 시작 시간이 지났고 종료 전이면 즉시 녹화 시작
-        if start_dt <= now < stop_dt:
-            self._schedule_start_recording()
+        # 현재 시간이 오늘 녹화 구간 내인지 확인하여 즉시 시작
+        self._check_and_start_if_in_window()
 
         # UI 잠금
-        self.dt_start.setEnabled(False)
-        self.dt_stop.setEnabled(False)
+        self.spin_start_hour.setEnabled(False)
+        self.spin_stop_hour.setEnabled(False)
         self.chk_repeat.setEnabled(False)
         self.spin_interval.setEnabled(False)
+        self.spin_rec_duration.setEnabled(False)
         self.btn_schedule.setText("예약 취소")
         self.btn_schedule.setStyleSheet(
             "QPushButton { background-color: #922b21; color: white;"
@@ -1205,12 +1246,11 @@ class MainWindow(QWidget):
         self._update_schedule_label()
 
         repeat_str = ""
-        if self.chk_repeat.isChecked():
-            repeat_str = f"  반복: {self.spin_interval.value()}분 간격"
+        if self._sched_use_repeat:
+            repeat_str = (f"  반복: {self._sched_interval}분 간격"
+                          f" / 녹화: {self._sched_rec_duration}분")
         logger.info(
-            f"[예약] 활성화  "
-            f"시작={start_dt:%Y-%m-%d %H:%M:%S}  "
-            f"종료={stop_dt:%Y-%m-%d %H:%M:%S}{repeat_str}")
+            f"[예약] 활성화  매일 {start_h}시~{stop_h}시{repeat_str}")
 
     def _cancel_schedule(self):
         # 예약에 의해 녹화 중이었으면 정지
@@ -1219,14 +1259,13 @@ class MainWindow(QWidget):
 
         self._schedule_active  = False
         self._schedule_running = False
-        self._schedule_next_start = None
-        self._schedule_next_stop  = None
 
-        # UI 잠금 해제
-        self.dt_start.setEnabled(True)
-        self.dt_stop.setEnabled(True)
-        self.chk_repeat.setEnabled(True)
-        self.spin_interval.setEnabled(self.chk_repeat.isChecked())
+        # UI 초기 상태로 복원 (비활성)
+        self.spin_start_hour.setEnabled(False)
+        self.spin_stop_hour.setEnabled(False)
+        self.chk_repeat.setEnabled(False)
+        self.spin_interval.setEnabled(False)
+        self.spin_rec_duration.setEnabled(False)
         self.btn_schedule.setText("예약 녹화 설정")
         self.btn_schedule.setStyleSheet(
             "QPushButton { background-color: #1a5276; color: white;"
@@ -1237,43 +1276,78 @@ class MainWindow(QWidget):
         self.lbl_schedule_status.setStyleSheet("color: #888;")
         logger.info("[예약] 취소됨")
 
+    def _get_today_window(self):
+        """오늘 날짜 기준 녹화 시작/종료 datetime 반환."""
+        today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        win_start = today + timedelta(hours=self._sched_start_hour)
+        win_stop  = today + timedelta(hours=self._sched_stop_hour)
+        return win_start, win_stop
+
+    def _check_and_start_if_in_window(self):
+        """현재 시각이 녹화 구간 내이면 녹화를 시작한다."""
+        now = datetime.now()
+        win_start, win_stop = self._get_today_window()
+        if not (win_start <= now < win_stop):
+            return
+        if self._sched_use_repeat:
+            slot_start, slot_stop = self._current_interval_slot(now, win_start, win_stop)
+            if slot_start and slot_start <= now < slot_stop:
+                self._schedule_start_recording()
+        else:
+            self._schedule_start_recording()
+
+    def _current_interval_slot(self, now, win_start, win_stop):
+        """반복 모드에서 현재 시각이 속한 녹화 슬롯(start, stop)을 반환.
+        반복 간격마다 슬롯이 시작되고, 녹화 시간만큼만 녹화한다.
+        예) 간격 60분, 녹화 10분 → 00:00~00:10 녹화, 00:10~01:00 대기, ...
+        """
+        interval = timedelta(minutes=self._sched_interval)
+        rec_dur  = timedelta(minutes=self._sched_rec_duration)
+        elapsed  = now - win_start
+        slot_idx = int(elapsed.total_seconds()) // int(interval.total_seconds())
+        slot_start = win_start + interval * slot_idx
+        slot_stop  = slot_start + rec_dur
+        if slot_stop > win_stop:
+            slot_stop = win_stop
+        if slot_start >= win_stop:
+            return None, None
+        return slot_start, slot_stop
+
     def _on_schedule_tick(self):
         if not self._schedule_active:
             return
 
         now = datetime.now()
-        start = self._schedule_next_start
-        stop  = self._schedule_next_stop
+        win_start, win_stop = self._get_today_window()
 
-        # 녹화 시작 시점 도달
-        if not self._schedule_running and start <= now < stop:
-            self._schedule_start_recording()
+        # ── 녹화 시간대 밖 ──
+        if now < win_start or now >= win_stop:
+            if self._schedule_running:
+                self._schedule_stop_recording()
+                logger.info("[예약] 시간대 종료 — 녹화 정지")
+            self._update_schedule_label()
+            return
 
-        # 녹화 종료 시점 도달
-        if self._schedule_running and now >= stop:
-            self._schedule_stop_recording()
-
-            if self.chk_repeat.isChecked():
-                interval_min = self.spin_interval.value()
-                interval = timedelta(minutes=interval_min)
-                duration = stop - start
-
-                # 다음 시작 = 이전 시작 + 반복 간격
-                next_start = start + interval
-                # 이미 지난 시간이면 현재 기준으로 다음 주기 계산
-                while next_start + duration <= now:
-                    next_start += interval
-
-                self._schedule_next_start = next_start
-                self._schedule_next_stop  = next_start + duration
-                logger.info(
-                    f"[예약] 다음 반복  "
-                    f"시작={self._schedule_next_start:%Y-%m-%d %H:%M:%S}  "
-                    f"종료={self._schedule_next_stop:%Y-%m-%d %H:%M:%S}")
+        # ── 녹화 시간대 내 ──
+        if self._sched_use_repeat:
+            # 반복 모드: 현재 슬롯 확인
+            slot_start, slot_stop = self._current_interval_slot(now, win_start, win_stop)
+            if slot_start is None:
+                if self._schedule_running:
+                    self._schedule_stop_recording()
+            elif slot_start <= now < slot_stop:
+                if not self._schedule_running:
+                    self._schedule_start_recording()
+                    logger.info(
+                        f"[예약] 반복 녹화 시작  "
+                        f"{slot_start:%H:%M}~{slot_stop:%H:%M}")
             else:
-                # 반복 아니면 예약 종료
-                self._cancel_schedule()
-                return
+                if self._schedule_running:
+                    self._schedule_stop_recording()
+        else:
+            # 전체 구간 연속 녹화
+            if not self._schedule_running:
+                self._schedule_start_recording()
 
         self._update_schedule_label()
 
@@ -1293,27 +1367,56 @@ class MainWindow(QWidget):
 
     def _update_schedule_label(self):
         now = datetime.now()
-        start = self._schedule_next_start
-        stop  = self._schedule_next_stop
+        win_start, win_stop = self._get_today_window()
 
         if self._schedule_running:
-            remaining = stop - now
-            mins, secs = divmod(int(remaining.total_seconds()), 60)
+            # 현재 녹화 구간의 남은 시간 계산
+            if self._sched_use_repeat:
+                slot_start, slot_stop = self._current_interval_slot(
+                    now, win_start, win_stop)
+                end = slot_stop if slot_stop else win_stop
+            else:
+                end = win_stop
+            remaining = end - now
+            secs_left = max(0, int(remaining.total_seconds()))
+            mins, secs = divmod(secs_left, 60)
             hours, mins = divmod(mins, 60)
             self.lbl_schedule_status.setText(
-                f"녹화 중  |  남은 시간: {hours:02d}:{mins:02d}:{secs:02d}")
+                f"녹화 중  |  남은 시간: {hours:02d}:{mins:02d}:{secs:02d}"
+                f"  ({self._sched_start_hour}시~{self._sched_stop_hour}시)")
             self.lbl_schedule_status.setStyleSheet(
                 f"color: #ff4444; font-weight: bold;"
                 f" font-size: {BASE_FONT_SIZE}px;")
         else:
-            wait = start - now
-            mins, secs = divmod(int(wait.total_seconds()), 60)
+            # 다음 녹화 시작까지 대기
+            if now < win_start:
+                next_start = win_start
+            elif now >= win_stop:
+                # 오늘 구간 종료 → 내일 시작
+                tomorrow = now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
+                next_start = tomorrow + timedelta(hours=self._sched_start_hour)
+            else:
+                # 시간대 내, 반복 모드에서 다음 슬롯 대기
+                interval = timedelta(minutes=self._sched_interval)
+                elapsed  = now - win_start
+                slot_idx = int(elapsed.total_seconds()) // int(interval.total_seconds())
+                next_start = win_start + interval * (slot_idx + 1)
+                if next_start >= win_stop:
+                    # 오늘 마지막 슬롯 지남 → 내일 시작
+                    tomorrow = now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
+                    next_start = tomorrow + timedelta(hours=self._sched_start_hour)
+
+            wait = next_start - now
+            secs_left = max(0, int(wait.total_seconds()))
+            mins, secs = divmod(secs_left, 60)
             hours, mins = divmod(mins, 60)
             repeat_str = ""
-            if self.chk_repeat.isChecked():
-                repeat_str = f"  (반복: {self.spin_interval.value()}분)"
+            if self._sched_use_repeat:
+                repeat_str = (f"  (반복: {self._sched_interval}분"
+                              f" / 녹화: {self._sched_rec_duration}분)")
             self.lbl_schedule_status.setText(
                 f"대기 중  |  시작까지: {hours:02d}:{mins:02d}:{secs:02d}"
+                f"  ({self._sched_start_hour}시~{self._sched_stop_hour}시)"
                 f"{repeat_str}")
             self.lbl_schedule_status.setStyleSheet(
                 f"color: #2ecc71; font-size: {BASE_FONT_SIZE}px;")
