@@ -13,6 +13,15 @@ __pycache__/
 *.pyc
 *.pyo
 
+# 리소스 (로고 등)
+resource/
+
+# 제출용 폴더
+submit/
+
+# Claude Code 워크트리
+.claude/
+
 # OS
 .DS_Store
 Thumbs.db
