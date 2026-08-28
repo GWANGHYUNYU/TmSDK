@@ -1,0 +1,209 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1250 1110" width="1250" height="1110" font-family="Malgun Gothic, Segoe UI, sans-serif">
+<rect width="1250" height="1110" fill="#FFFFFF"/>
+<text x="625" y="46" text-anchor="middle" font-size="27" font-weight="bold" fill="#1F3864">방사율 체커보드 — 무광 검정 시공 도면</text>
+<text x="625" y="72" text-anchor="middle" font-size="14" fill="#5A6570">판 300 × 400 · 칸 30 mm · 격자 5열 × 8행 · 검정 20칸 · 내부 코너 4 × 7 = 28개</text>
+<line x1="30" y1="88" x2="1220" y2="88" stroke="#BFC7D0" stroke-width="1"/>
+<rect x="150.0" y="175.0" width="525.0" height="700.0" rx="8" fill="#C9CDD1" stroke="#6B7780" stroke-width="2.5"/>
+<text x="158.0" y="197.0" font-size="11" fill="#5A6570">바이브레이션 마감면 (금속 노출, 저방사율)</text>
+<rect x="281.25" y="315.00" width="52.50" height="52.50" fill="#1A1A1A"/>
+<rect x="333.75" y="315.00" width="52.50" height="52.50" fill="none" stroke="#8A939B" stroke-width="0.7" stroke-dasharray="3 3"/>
+<rect x="386.25" y="315.00" width="52.50" height="52.50" fill="#1A1A1A"/>
+<rect x="438.75" y="315.00" width="52.50" height="52.50" fill="none" stroke="#8A939B" stroke-width="0.7" stroke-dasharray="3 3"/>
+<rect x="491.25" y="315.00" width="52.50" height="52.50" fill="#1A1A1A"/>
+<rect x="281.25" y="367.50" width="52.50" height="52.50" fill="none" stroke="#8A939B" stroke-width="0.7" stroke-dasharray="3 3"/>
+<rect x="333.75" y="367.50" width="52.50" height="52.50" fill="#1A1A1A"/>
+<rect x="386.25" y="367.50" width="52.50" height="52.50" fill="none" stroke="#8A939B" stroke-width="0.7" stroke-dasharray="3 3"/>
+<rect x="438.75" y="367.50" width="52.50" height="52.50" fill="#1A1A1A"/>
+<rect x="491.25" y="367.50" width="52.50" height="52.50" fill="none" stroke="#8A939B" stroke-width="0.7" stroke-dasharray="3 3"/>
+<rect x="281.25" y="420.00" width="52.50" height="52.50" fill="#1A1A1A"/>
+<rect x="333.75" y="420.00" width="52.50" height="52.50" fill="none" stroke="#8A939B" stroke-width="0.7" stroke-dasharray="3 3"/>
+<rect x="386.25" y="420.00" width="52.50" height="52.50" fill="#1A1A1A"/>
+<rect x="438.75" y="420.00" width="52.50" height="52.50" fill="none" stroke="#8A939B" stroke-width="0.7" stroke-dasharray="3 3"/>
+<rect x="491.25" y="420.00" width="52.50" height="52.50" fill="#1A1A1A"/>
+<rect x="281.25" y="472.50" width="52.50" height="52.50" fill="none" stroke="#8A939B" stroke-width="0.7" stroke-dasharray="3 3"/>
+<rect x="333.75" y="472.50" width="52.50" height="52.50" fill="#1A1A1A"/>
+<rect x="386.25" y="472.50" width="52.50" height="52.50" fill="none" stroke="#8A939B" stroke-width="0.7" stroke-dasharray="3 3"/>
+<rect x="438.75" y="472.50" width="52.50" height="52.50" fill="#1A1A1A"/>
+<rect x="491.25" y="472.50" width="52.50" height="52.50" fill="none" stroke="#8A939B" stroke-width="0.7" stroke-dasharray="3 3"/>
+<rect x="281.25" y="525.00" width="52.50" height="52.50" fill="#1A1A1A"/>
+<rect x="333.75" y="525.00" width="52.50" height="52.50" fill="none" stroke="#8A939B" stroke-width="0.7" stroke-dasharray="3 3"/>
+<rect x="386.25" y="525.00" width="52.50" height="52.50" fill="#1A1A1A"/>
+<rect x="438.75" y="525.00" width="52.50" height="52.50" fill="none" stroke="#8A939B" stroke-width="0.7" stroke-dasharray="3 3"/>
+<rect x="491.25" y="525.00" width="52.50" height="52.50" fill="#1A1A1A"/>
+<rect x="281.25" y="577.50" width="52.50" height="52.50" fill="none" stroke="#8A939B" stroke-width="0.7" stroke-dasharray="3 3"/>
+<rect x="333.75" y="577.50" width="52.50" height="52.50" fill="#1A1A1A"/>
+<rect x="386.25" y="577.50" width="52.50" height="52.50" fill="none" stroke="#8A939B" stroke-width="0.7" stroke-dasharray="3 3"/>
+<rect x="438.75" y="577.50" width="52.50" height="52.50" fill="#1A1A1A"/>
+<rect x="491.25" y="577.50" width="52.50" height="52.50" fill="none" stroke="#8A939B" stroke-width="0.7" stroke-dasharray="3 3"/>
+<rect x="281.25" y="630.00" width="52.50" height="52.50" fill="#1A1A1A"/>
+<rect x="333.75" y="630.00" width="52.50" height="52.50" fill="none" stroke="#8A939B" stroke-width="0.7" stroke-dasharray="3 3"/>
+<rect x="386.25" y="630.00" width="52.50" height="52.50" fill="#1A1A1A"/>
+<rect x="438.75" y="630.00" width="52.50" height="52.50" fill="none" stroke="#8A939B" stroke-width="0.7" stroke-dasharray="3 3"/>
+<rect x="491.25" y="630.00" width="52.50" height="52.50" fill="#1A1A1A"/>
+<rect x="281.25" y="682.50" width="52.50" height="52.50" fill="none" stroke="#8A939B" stroke-width="0.7" stroke-dasharray="3 3"/>
+<rect x="333.75" y="682.50" width="52.50" height="52.50" fill="#1A1A1A"/>
+<rect x="386.25" y="682.50" width="52.50" height="52.50" fill="none" stroke="#8A939B" stroke-width="0.7" stroke-dasharray="3 3"/>
+<rect x="438.75" y="682.50" width="52.50" height="52.50" fill="#1A1A1A"/>
+<rect x="491.25" y="682.50" width="52.50" height="52.50" fill="none" stroke="#8A939B" stroke-width="0.7" stroke-dasharray="3 3"/>
+<rect x="281.25" y="315.00" width="262.50" height="420.00" fill="none" stroke="#C0392B" stroke-width="2"/>
+<circle cx="333.75" cy="367.50" r="4.5" fill="none" stroke="#C0392B" stroke-width="2"/>
+<circle cx="386.25" cy="367.50" r="4.5" fill="none" stroke="#C0392B" stroke-width="2"/>
+<circle cx="438.75" cy="367.50" r="4.5" fill="none" stroke="#C0392B" stroke-width="2"/>
+<circle cx="491.25" cy="367.50" r="4.5" fill="none" stroke="#C0392B" stroke-width="2"/>
+<circle cx="333.75" cy="420.00" r="4.5" fill="none" stroke="#C0392B" stroke-width="2"/>
+<circle cx="386.25" cy="420.00" r="4.5" fill="none" stroke="#C0392B" stroke-width="2"/>
+<circle cx="438.75" cy="420.00" r="4.5" fill="none" stroke="#C0392B" stroke-width="2"/>
+<circle cx="491.25" cy="420.00" r="4.5" fill="none" stroke="#C0392B" stroke-width="2"/>
+<circle cx="333.75" cy="472.50" r="4.5" fill="none" stroke="#C0392B" stroke-width="2"/>
+<circle cx="386.25" cy="472.50" r="4.5" fill="none" stroke="#C0392B" stroke-width="2"/>
+<circle cx="438.75" cy="472.50" r="4.5" fill="none" stroke="#C0392B" stroke-width="2"/>
+<circle cx="491.25" cy="472.50" r="4.5" fill="none" stroke="#C0392B" stroke-width="2"/>
+<circle cx="333.75" cy="525.00" r="4.5" fill="none" stroke="#C0392B" stroke-width="2"/>
+<circle cx="386.25" cy="525.00" r="4.5" fill="none" stroke="#C0392B" stroke-width="2"/>
+<circle cx="438.75" cy="525.00" r="4.5" fill="none" stroke="#C0392B" stroke-width="2"/>
+<circle cx="491.25" cy="525.00" r="4.5" fill="none" stroke="#C0392B" stroke-width="2"/>
+<circle cx="333.75" cy="577.50" r="4.5" fill="none" stroke="#C0392B" stroke-width="2"/>
+<circle cx="386.25" cy="577.50" r="4.5" fill="none" stroke="#C0392B" stroke-width="2"/>
+<circle cx="438.75" cy="577.50" r="4.5" fill="none" stroke="#C0392B" stroke-width="2"/>
+<circle cx="491.25" cy="577.50" r="4.5" fill="none" stroke="#C0392B" stroke-width="2"/>
+<circle cx="333.75" cy="630.00" r="4.5" fill="none" stroke="#C0392B" stroke-width="2"/>
+<circle cx="386.25" cy="630.00" r="4.5" fill="none" stroke="#C0392B" stroke-width="2"/>
+<circle cx="438.75" cy="630.00" r="4.5" fill="none" stroke="#C0392B" stroke-width="2"/>
+<circle cx="491.25" cy="630.00" r="4.5" fill="none" stroke="#C0392B" stroke-width="2"/>
+<circle cx="333.75" cy="682.50" r="4.5" fill="none" stroke="#C0392B" stroke-width="2"/>
+<circle cx="386.25" cy="682.50" r="4.5" fill="none" stroke="#C0392B" stroke-width="2"/>
+<circle cx="438.75" cy="682.50" r="4.5" fill="none" stroke="#C0392B" stroke-width="2"/>
+<circle cx="491.25" cy="682.50" r="4.5" fill="none" stroke="#C0392B" stroke-width="2"/>
+<text x="307.50" y="303.00" text-anchor="middle" font-size="13" font-weight="bold" fill="#1F3864">1</text>
+<text x="360.00" y="303.00" text-anchor="middle" font-size="13" font-weight="bold" fill="#1F3864">2</text>
+<text x="412.50" y="303.00" text-anchor="middle" font-size="13" font-weight="bold" fill="#1F3864">3</text>
+<text x="465.00" y="303.00" text-anchor="middle" font-size="13" font-weight="bold" fill="#1F3864">4</text>
+<text x="517.50" y="303.00" text-anchor="middle" font-size="13" font-weight="bold" fill="#1F3864">5</text>
+<text x="265.25" y="346.25" text-anchor="middle" font-size="13" font-weight="bold" fill="#1F3864">1</text>
+<text x="265.25" y="398.75" text-anchor="middle" font-size="13" font-weight="bold" fill="#1F3864">2</text>
+<text x="265.25" y="451.25" text-anchor="middle" font-size="13" font-weight="bold" fill="#1F3864">3</text>
+<text x="265.25" y="503.75" text-anchor="middle" font-size="13" font-weight="bold" fill="#1F3864">4</text>
+<text x="265.25" y="556.25" text-anchor="middle" font-size="13" font-weight="bold" fill="#1F3864">5</text>
+<text x="265.25" y="608.75" text-anchor="middle" font-size="13" font-weight="bold" fill="#1F3864">6</text>
+<text x="265.25" y="661.25" text-anchor="middle" font-size="13" font-weight="bold" fill="#1F3864">7</text>
+<text x="265.25" y="713.75" text-anchor="middle" font-size="13" font-weight="bold" fill="#1F3864">8</text>
+<line x1="150.0" y1="875.0" x2="150.0" y2="927.0" stroke="#8A939B" stroke-width="0.8"/>
+<line x1="675.0" y1="875.0" x2="675.0" y2="927.0" stroke="#8A939B" stroke-width="0.8"/>
+<line x1="150.0" y1="917.0" x2="675.0" y2="917.0" stroke="#C0392B" stroke-width="1.2"/>
+<path d="M150.0,917.0 l7,-4 l0,8 z" fill="#C0392B"/>
+<path d="M675.0,917.0 l-7,-4 l0,8 z" fill="#C0392B"/>
+<text x="412.5" y="909.0" text-anchor="middle" font-size="13" font-weight="bold" fill="#C0392B">300</text>
+<line x1="150.0" y1="175.0" x2="80.0" y2="175.0" stroke="#8A939B" stroke-width="0.8"/>
+<line x1="150.0" y1="875.0" x2="80.0" y2="875.0" stroke="#8A939B" stroke-width="0.8"/>
+<line x1="94.0" y1="175.0" x2="94.0" y2="875.0" stroke="#C0392B" stroke-width="1.2"/>
+<path d="M94.0,175.0 l-4,7 l8,0 z" fill="#C0392B"/>
+<path d="M94.0,875.0 l-4,-7 l8,0 z" fill="#C0392B"/>
+<text x="84.0" y="525.0" text-anchor="middle" font-size="13" font-weight="bold" fill="#C0392B" transform="rotate(-90 84.0 525.0)">400</text>
+<line x1="281.25" y1="275.0" x2="543.75" y2="275.0" stroke="#C0392B" stroke-width="1.2"/>
+<path d="M281.25,275.0 l7,-4 l0,8 z" fill="#C0392B"/>
+<path d="M543.75,275.0 l-7,-4 l0,8 z" fill="#C0392B"/>
+<text x="412.5" y="267.0" text-anchor="middle" font-size="13" font-weight="bold" fill="#C0392B">패턴 150</text>
+<line x1="543.75" y1="315.0" x2="737.0" y2="315.0" stroke="#8A939B" stroke-width="0.8"/>
+<line x1="543.75" y1="735.0" x2="737.0" y2="735.0" stroke="#8A939B" stroke-width="0.8"/>
+<line x1="725.0" y1="315.0" x2="725.0" y2="735.0" stroke="#C0392B" stroke-width="1.2"/>
+<path d="M725.0,315.0 l-4,7 l8,0 z" fill="#C0392B"/>
+<path d="M725.0,735.0 l-4,-7 l8,0 z" fill="#C0392B"/>
+<text x="715.0" y="525.0" text-anchor="middle" font-size="13" font-weight="bold" fill="#C0392B" transform="rotate(-90 715.0 525.0)">패턴 240</text>
+<line x1="150.0" y1="965.0" x2="281.25" y2="965.0" stroke="#C0392B" stroke-width="1.2"/>
+<path d="M150.0,965.0 l7,-4 l0,8 z" fill="#C0392B"/>
+<path d="M281.25,965.0 l-7,-4 l0,8 z" fill="#C0392B"/>
+<text x="215.625" y="957.0" text-anchor="middle" font-size="13" font-weight="bold" fill="#C0392B">여백 75</text>
+<line x1="543.75" y1="965.0" x2="675.0" y2="965.0" stroke="#C0392B" stroke-width="1.2"/>
+<path d="M543.75,965.0 l7,-4 l0,8 z" fill="#C0392B"/>
+<path d="M675.0,965.0 l-7,-4 l0,8 z" fill="#C0392B"/>
+<text x="609.375" y="957.0" text-anchor="middle" font-size="13" font-weight="bold" fill="#C0392B">여백 75</text>
+<line x1="150.0" y1="315.0" x2="110.0" y2="315.0" stroke="#8A939B" stroke-width="0.8"/>
+<line x1="126.0" y1="175.0" x2="126.0" y2="315.0" stroke="#C0392B" stroke-width="1.2"/>
+<path d="M126.0,175.0 l-4,7 l8,0 z" fill="#C0392B"/>
+<path d="M126.0,315.0 l-4,-7 l8,0 z" fill="#C0392B"/>
+<text x="116.0" y="245.0" text-anchor="middle" font-size="13" font-weight="bold" fill="#C0392B" transform="rotate(-90 116.0 245.0)">80</text>
+<line x1="281.25" y1="735.0" x2="281.25" y2="761.0" stroke="#8A939B" stroke-width="0.8"/>
+<line x1="333.75" y1="735.0" x2="333.75" y2="761.0" stroke="#8A939B" stroke-width="0.8"/>
+<line x1="281.25" y1="755.0" x2="333.75" y2="755.0" stroke="#C0392B" stroke-width="1.2"/>
+<path d="M281.25,755.0 l7,-4 l0,8 z" fill="#C0392B"/>
+<path d="M333.75,755.0 l-7,-4 l0,8 z" fill="#C0392B"/>
+<text x="307.5" y="747.0" text-anchor="middle" font-size="13" font-weight="bold" fill="#C0392B">30</text>
+<rect x="745" y="120" width="475" height="168" rx="7" fill="#F4F6F8" stroke="#607D8B" stroke-width="1.8"/>
+<text x="761" y="144" font-size="14" font-weight="bold" fill="#607D8B">① 검정으로 채울 칸 (총 20칸)</text>
+<text x="761" y="168" font-size="12" fill="#40484F">홀수 행(1·3·5·7) → <tspan font-weight="bold">1, 3, 5 열</tspan></text>
+<text x="761" y="190" font-size="12" fill="#40484F">짝수 행(2·4·6·8) → <tspan font-weight="bold">2, 4 열</tspan></text>
+<text x="761" y="218" font-size="11.5" fill="#5A6570">좌상단(1행 1열)이 검정입니다. 열이 5칸(홀수)이라</text>
+<text x="761" y="236" font-size="11.5" fill="#5A6570">각 행의 양끝 칸 색이 같습니다 — 정상입니다.</text>
+<text x="761" y="264" font-size="11.5" font-weight="bold" fill="#C0392B">검정 20칸 · 금속 노출 20칸</text>
+<rect x="745" y="302" width="475" height="196" rx="7" fill="#FFFDE7" stroke="#C9A227" stroke-width="1.8"/>
+<text x="761" y="326" font-size="14" font-weight="bold" fill="#C9A227">② 열화상에서 이렇게 보이면 정상</text>
+<rect x="767" y="344.0" width="21" height="11.6" fill="#FFE9A8"/>
+<rect x="788" y="344.0" width="21" height="11.6" fill="#3B2A55"/>
+<rect x="809" y="344.0" width="21" height="11.6" fill="#FFE9A8"/>
+<rect x="830" y="344.0" width="21" height="11.6" fill="#3B2A55"/>
+<rect x="851" y="344.0" width="21" height="11.6" fill="#FFE9A8"/>
+<rect x="767" y="355.6" width="21" height="11.6" fill="#3B2A55"/>
+<rect x="788" y="355.6" width="21" height="11.6" fill="#FFE9A8"/>
+<rect x="809" y="355.6" width="21" height="11.6" fill="#3B2A55"/>
+<rect x="830" y="355.6" width="21" height="11.6" fill="#FFE9A8"/>
+<rect x="851" y="355.6" width="21" height="11.6" fill="#3B2A55"/>
+<rect x="767" y="367.1" width="21" height="11.6" fill="#FFE9A8"/>
+<rect x="788" y="367.1" width="21" height="11.6" fill="#3B2A55"/>
+<rect x="809" y="367.1" width="21" height="11.6" fill="#FFE9A8"/>
+<rect x="830" y="367.1" width="21" height="11.6" fill="#3B2A55"/>
+<rect x="851" y="367.1" width="21" height="11.6" fill="#FFE9A8"/>
+<rect x="767" y="378.6" width="21" height="11.6" fill="#3B2A55"/>
+<rect x="788" y="378.6" width="21" height="11.6" fill="#FFE9A8"/>
+<rect x="809" y="378.6" width="21" height="11.6" fill="#3B2A55"/>
+<rect x="830" y="378.6" width="21" height="11.6" fill="#FFE9A8"/>
+<rect x="851" y="378.6" width="21" height="11.6" fill="#3B2A55"/>
+<rect x="767" y="390.2" width="21" height="11.6" fill="#FFE9A8"/>
+<rect x="788" y="390.2" width="21" height="11.6" fill="#3B2A55"/>
+<rect x="809" y="390.2" width="21" height="11.6" fill="#FFE9A8"/>
+<rect x="830" y="390.2" width="21" height="11.6" fill="#3B2A55"/>
+<rect x="851" y="390.2" width="21" height="11.6" fill="#FFE9A8"/>
+<rect x="767" y="401.8" width="21" height="11.6" fill="#3B2A55"/>
+<rect x="788" y="401.8" width="21" height="11.6" fill="#FFE9A8"/>
+<rect x="809" y="401.8" width="21" height="11.6" fill="#3B2A55"/>
+<rect x="830" y="401.8" width="21" height="11.6" fill="#FFE9A8"/>
+<rect x="851" y="401.8" width="21" height="11.6" fill="#3B2A55"/>
+<rect x="767" y="413.3" width="21" height="11.6" fill="#FFE9A8"/>
+<rect x="788" y="413.3" width="21" height="11.6" fill="#3B2A55"/>
+<rect x="809" y="413.3" width="21" height="11.6" fill="#FFE9A8"/>
+<rect x="830" y="413.3" width="21" height="11.6" fill="#3B2A55"/>
+<rect x="851" y="413.3" width="21" height="11.6" fill="#FFE9A8"/>
+<rect x="767" y="424.9" width="21" height="11.6" fill="#3B2A55"/>
+<rect x="788" y="424.9" width="21" height="11.6" fill="#FFE9A8"/>
+<rect x="809" y="424.9" width="21" height="11.6" fill="#3B2A55"/>
+<rect x="830" y="424.9" width="21" height="11.6" fill="#FFE9A8"/>
+<rect x="851" y="424.9" width="21" height="11.6" fill="#3B2A55"/>
+<text x="890" y="362" font-size="12" font-weight="bold" fill="#7A6100">검정 칸 → <tspan fill="#C0392B">밝게</tspan></text>
+<text x="890" y="382" font-size="11" fill="#40484F">방사율 0.95 → 판의 실제 온도</text>
+<text x="890" y="406" font-size="12" font-weight="bold" fill="#7A6100">금속 칸 → <tspan fill="#3B2A55">어둡게</tspan></text>
+<text x="890" y="426" font-size="11" fill="#40484F">방사율 0.15 → 주변 반사</text>
+<text x="761" y="480" font-size="11.5" font-weight="bold" fill="#B34700">※ 판을 데워야 보입니다. 같은 온도면 균일한 회색.</text>
+<rect x="745" y="512" width="475" height="214" rx="7" fill="#E8F5E9" stroke="#2E7D32" stroke-width="1.8"/>
+<text x="761" y="536" font-size="14" font-weight="bold" fill="#2E7D32">③ 재료 — 시트지를 권합니다</text>
+<text x="761" y="558" font-size="12.5" font-weight="bold" fill="#2E7D32">◎  무광 검정 컷팅 시트지</text>
+<text x="779" y="578" font-size="11" fill="#40484F">30×30 정확히 재단. 모서리가 곧고 두께 균일</text>
+<text x="761" y="610" font-size="12.5" font-weight="bold" fill="#B34700">△  3M 33+ 절연테이프</text>
+<text x="779" y="630" font-size="11" fill="#40484F">폭 19 mm 라 30 mm 칸에 2줄 → 이음매·단차 발생</text>
+<text x="761" y="672" font-size="11.5" fill="#40484F">테이프를 쓰신다면 긴 띠로 붙이고 스크라이빙 선에</text>
+<text x="761" y="690" font-size="11.5" fill="#40484F">자를 대고 칼로 잘라내는 편이 낫습니다.</text>
+<text x="761" y="712" font-size="11.5" font-weight="bold" fill="#2E7D32">재단 파일: checkerboard_cut_1to1.svg (1:1)</text>
+<rect x="745" y="742" width="475" height="240" rx="7" fill="#FBE9E7" stroke="#C0392B" stroke-width="1.8"/>
+<text x="761" y="766" font-size="14" font-weight="bold" fill="#C0392B">④ 붙일 때 지킬 것</text>
+<text x="761" y="788" font-size="12" font-weight="bold" fill="#C0392B">· 겹침 금지</text>
+<text x="775" y="807" font-size="11" fill="#40484F">칸끼리 겹치면 두 칸이 하나로 뭉쳐 코너가 사라집니다.</text>
+<text x="761" y="833" font-size="12" font-weight="bold" fill="#C0392B">· 모자란 쪽이 안전</text>
+<text x="775" y="852" font-size="11" fill="#40484F">0.3 mm 정도 작게 잘라 칸 안에 넣으십시오.</text>
+<text x="761" y="878" font-size="12" font-weight="bold" fill="#C0392B">· 대각 접점 정렬</text>
+<text x="775" y="897" font-size="11" fill="#40484F">네 칸이 만나는 점이 검출 대상입니다.</text>
+<text x="775" y="914" font-size="11" fill="#40484F">이 점을 스크라이빙 교차점에 맞추십시오.</text>
+<text x="761" y="940" font-size="12" font-weight="bold" fill="#C0392B">· 탈지 먼저</text>
+<text x="775" y="959" font-size="11" fill="#40484F">알코올로 닦고, 이후 판 가장자리만 잡으십시오.</text>
+<rect x="745" y="998" width="475" height="78" rx="7" fill="#EAF1FA" stroke="#1F3864" stroke-width="1.8"/>
+<text x="761" y="1022" font-size="14" font-weight="bold" fill="#1F3864">⑤ 현장에서 검출 확인</text>
+<text x="761" y="1048" font-size="12" font-family="Consolas, monospace" fill="#20303F">cv2.findChessboardCorners(img, (4, 7))</text>
+<text x="761" y="1068" font-size="10.5" fill="#5A6570">판을 눕혀 잡았으면 (7, 4). 코너 28개 · 자세 20개 = 560 대응점</text>
+</svg>

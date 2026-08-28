@@ -25,3 +25,13 @@ submit/
 # OS
 .DS_Store
 Thumbs.db
+
+# 캘리브레이션 원본 녹화 (280 MB, 82 MB 파일 포함) — 저장소에 넣지 않는다
+calib/
+
+# 검출 확인용 덤프 이미지
+chk/
+
+# 스크립트가 생성하는 산출물
+coverage.png
+thermal_calib.json

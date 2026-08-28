@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="150.0mm" height="240.0mm" viewBox="0 0 150 240">
+<!-- 방사율 체커보드 재단 파일 1:1. 칸 30 mm, 검정 20칸. 패턴 150x240 mm. 판 300x400 중앙 배치(여백 75/80). -->
+<rect x="0" y="0" width="30" height="30" fill="#000000"/>
+<rect x="60" y="0" width="30" height="30" fill="#000000"/>
+<rect x="120" y="0" width="30" height="30" fill="#000000"/>
+<rect x="30" y="30" width="30" height="30" fill="#000000"/>
+<rect x="90" y="30" width="30" height="30" fill="#000000"/>
+<rect x="0" y="60" width="30" height="30" fill="#000000"/>
+<rect x="60" y="60" width="30" height="30" fill="#000000"/>
+<rect x="120" y="60" width="30" height="30" fill="#000000"/>
+<rect x="30" y="90" width="30" height="30" fill="#000000"/>
+<rect x="90" y="90" width="30" height="30" fill="#000000"/>
+<rect x="0" y="120" width="30" height="30" fill="#000000"/>
+<rect x="60" y="120" width="30" height="30" fill="#000000"/>
+<rect x="120" y="120" width="30" height="30" fill="#000000"/>
+<rect x="30" y="150" width="30" height="30" fill="#000000"/>
+<rect x="90" y="150" width="30" height="30" fill="#000000"/>
+<rect x="0" y="180" width="30" height="30" fill="#000000"/>
+<rect x="60" y="180" width="30" height="30" fill="#000000"/>
+<rect x="120" y="180" width="30" height="30" fill="#000000"/>
+<rect x="30" y="210" width="30" height="30" fill="#000000"/>
+<rect x="90" y="210" width="30" height="30" fill="#000000"/>
+</svg>

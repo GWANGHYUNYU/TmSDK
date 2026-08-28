@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="620" height="200" viewBox="0 0 620 200"><rect width="620" height="200" fill="#ffffff"/><g font-family="Malgun Gothic, Segoe UI, sans-serif">
+<circle cx="150" cy="104" r="36" fill="none" stroke="#c5ccd3" stroke-width="1.6"/>
+<circle cx="150" cy="104" r="21" fill="none" stroke="#14181d" stroke-width="1.8"/>
+<circle cx="150" cy="104" r="3" fill="#14181d"/>
+<text x="150" y="162" fill="#79838f" font-size="12" text-anchor="middle">RGB</text>
+<circle cx="320" cy="104" r="47" fill="none" stroke="#c5ccd3" stroke-width="1.6"/>
+<circle cx="320" cy="104" r="27" fill="none" stroke="#14181d" stroke-width="1.8"/>
+<circle cx="320" cy="104" r="3" fill="#14181d"/>
+<text x="320" y="172" fill="#79838f" font-size="12" text-anchor="middle">열화상</text>
+
+<g stroke="#bd4d0e" stroke-width="1.6" fill="none">
+  <path d="M129 34 L129 96 M347 34 L347 96"/><path d="M129 44 L347 44"/>
+  <path d="M134 39 L129 44 L134 49 M342 39 L347 44 L342 49"/></g>
+<rect x="205" y="32" width="66" height="20" rx="2" fill="#fff"/>
+<text x="212" y="47" fill="#bd4d0e" font-size="14" font-weight="bold">L_out</text>
+
+<g stroke="#bd4d0e" stroke-width="1.6" fill="none">
+  <path d="M171 112 L171 180 M293 112 L293 180"/><path d="M171 170 L293 170"/>
+  <path d="M176 165 L171 170 L176 175 M288 165 L293 170 L288 175"/></g>
+<rect x="205" y="158" width="54" height="20" rx="2" fill="#fff"/>
+<text x="212" y="173" fill="#bd4d0e" font-size="14" font-weight="bold">L_in</text>
+
+<path d="M150 104 L320 104" stroke="#14181d" stroke-width="1.6"
+      stroke-dasharray="5 4"/>
+<rect x="220" y="93" width="30" height="22" rx="2" fill="#fff"/>
+<text x="228" y="110" fill="#14181d" font-size="16" font-weight="bold">b</text>
+
+<text x="390" y="98" fill="#14181d" font-size="15" font-weight="bold">b = (L_out + L_in) / 2</text>
+<text x="390" y="120" fill="#48525d" font-size="12">두 렌즈 반지름이 소거되므로</text>
+<text x="390" y="138" fill="#48525d" font-size="12">렌즈 지름도 케이스 간격도</text>
+<text x="390" y="156" fill="#48525d" font-size="12">필요 없습니다.</text>
+</g></svg>
