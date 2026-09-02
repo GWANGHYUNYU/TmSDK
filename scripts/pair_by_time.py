@@ -49,12 +49,32 @@ def rgb_start(name):
 
 
 def load_th_frames(path):
-    """y16raw → [(프레임번호, 8bit)]  — 번호를 잃지 않는다."""
+    """y16raw → (배열, 변환함수, 프레임별 절대초 또는 None).
+
+    ★ .y16meta 에 프레임별 타임스탬프(밀리초)가 들어 있다. 이것을 쓰면
+      '시작 + idx/fps' 추정이 필요 없다. 추정은 프레임 드롭이 있는 녹화에서
+      최대 1.6 초까지 어긋났고(161425, 실측 fps 8.17), 그만큼 짝이 틀어졌다.
+      실측 fps 는 8.775 로 문서의 8.7 과도 다르다.
+    """
+    import json
     from read_y16 import load_meta, load_raw, temperature_converter
     meta = load_meta(path)
     arr = load_raw(path, meta)
     conv = temperature_converter(meta)
-    return arr, conv
+    secs = None
+    mp = os.path.splitext(path)[0] + ".y16meta"
+    try:
+        ts = json.load(open(mp, encoding="utf-8")).get("timestamps") or []
+        if ts:
+            secs = []
+            for s in ts:
+                t = dt.datetime.strptime(s, "%Y-%m-%d %H:%M:%S.%f")
+                secs.append(t.hour*3600 + t.minute*60 + t.second
+                            + t.microsecond/1e6)
+            secs = np.array(secs)
+    except Exception:
+        secs = None
+    return arr, conv, secs
 
 
 def main():
@@ -127,11 +147,12 @@ def main():
             print(f"  {short(nm,14):<14}시각을 알 수 없어 건너뜁니다")
             continue
         try:
-            arr, conv = load_th_frames(p)
+            arr, conv, secs = load_th_frames(p)
         except Exception as e:
             print(f"  {short(nm,14):<14}읽기 실패 {e}")
             continue
         base = st.hour*3600 + st.minute*60 + st.second
+        nts = 0 if secs is None else len(secs)
         got = []
         # 초당 3장 정도, 다만 긴 녹화는 상한을 둔다 (246초짜리가 섞여 있다)
         step = max(1, int(round(args.th_fps/3)),
@@ -144,11 +165,16 @@ def main():
             r = inplane_deg(c, pat)
             if got and abs(r-got[-1][2]) < args.min_move:
                 continue                              # 같은 자세는 한 번만
-            got.append((i, c.reshape(-1, 2), r, base + i/args.th_fps))
+            # 메타 타임스탬프가 있으면 그것을, 없으면 fps 추정을 쓴다
+            tt = (float(secs[i]) if secs is not None and i < len(secs)
+                  else base + i/args.th_fps)
+            got.append((i, c.reshape(-1, 2), r, tt))
         for i, c, r, t in got:
             th_items.append((f"{nm}#f{i:04d}", t, c, r))
+        src = (f"메타 {nts}개" if nts >= arr.shape[0]
+               else (f"메타 {nts}개(부족)" if nts else "fps 추정"))
         print(f"  열화상 {short(nm,20):<20}{st.strftime('%H:%M:%S')}  "
-              f"{arr.shape[0]:>5}프레임  →  자세 {len(got)}개")
+              f"{arr.shape[0]:>5}프레임  시각 {src:<14}→  자세 {len(got)}개")
 
     if not th_items:
         raise SystemExit("열화상 자세를 하나도 못 뽑았습니다.")
