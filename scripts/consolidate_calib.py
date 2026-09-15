@@ -96,7 +96,16 @@ def main():
         files = [(base+e, os.path.getsize(base+e))
                  for e in EXTS if os.path.exists(base+e)]
         if r["kind"] is None or group is None:
-            dels += [(p, s, r["why"]) for p, s in files]
+            # ★ 이유만 적고 수치를 안 남기면, 지운 뒤에 원인을 물을 수
+            #   없다. 2026-09-15 에 실제로 그렇게 됐다.
+            d = [q["dist"] for q in r["poses"] if q.get("dist")]
+            m = dict(대비_C=r.get("contrast"),
+                     거리_mm=(min(d) if d else None),
+                     칸_px=(max(q["sq"] for q in r["poses"])
+                            if r["poses"] else None),
+                     검출프레임=f"{r.get('ndet')}/{r.get('scanned')}",
+                     국소대비_C=r.get("loc"), 프레임수=r.get("frames"))
+            dels += [(p, s, r["why"], m) for p, s in files]
             continue
         r["dist"] = int(round(r["dist"]))
         nm = f"d{r['dist']:04d}_{ymd}_{hms}"
@@ -116,7 +125,7 @@ def main():
             p = os.path.join(d, f)
             s = os.path.getsize(p)
             if f in RGB_DROP:
-                dels.append((p, s, RGB_DROP[f]))
+                dels.append((p, s, RGB_DROP[f], {}))
             else:
                 moves.append((p, os.path.join(CALIB, group, "rgb", f), s))
 
@@ -125,7 +134,8 @@ def main():
     if os.path.isdir(ad):
         for f in sorted(os.listdir(ad)):
             p = os.path.join(ad, f)
-            dels.append((p, os.path.getsize(p), "th/th350/th400/th450 와 동일한 사본"))
+            dels.append((p, os.path.getsize(p),
+                         "th/th350/th400/th450 와 동일한 사본", {}))
 
     # 같은 시각의 녹화가 두 폴더에 복사돼 있으면 목적지가 겹친다 (th_260914/
     # 와 th_260914_before/ 에 180655·180708 이 양쪽에 있다). 하나만 옮기고
@@ -133,14 +143,15 @@ def main():
     seen, uniq = {}, []
     for src, dst, s in moves:
         if dst in seen:
-            dels.append((src, s, f"{os.path.relpath(seen[dst], HERE)} 와 같은 녹화의 사본"))
+            dels.append((src, s,
+                         f"{os.path.relpath(seen[dst], HERE)} 와 같은 녹화의 사본", {}))
             continue
         seen[dst] = src
         uniq.append((src, dst, s))
     moves = uniq
 
     mv = sum(s for _, _, s in moves)
-    dl = sum(s for _, s, _ in dels)
+    dl = sum(s for _, s, _, _ in dels)
     kept = [r for r in recs.values() if r["kind"]]
     print("=" * 92)
     print(f"{'실행' if args.apply else '계획 (실제로는 아무것도 바꾸지 않음)'}")
@@ -154,7 +165,7 @@ def main():
     print(f"  지울 파일  {len(dels):>3}개  {dl/1e6:7.1f} MB")
 
     agg = {}
-    for p, s, why in dels:
+    for p, s, why, _m in dels:
         k = re.sub(r"[\d.]+", "N", why)[:46]
         n, b = agg.get(k, (0, 0))
         agg[k] = (n+1, b+s)
@@ -172,12 +183,14 @@ def main():
     with open(os.path.join(CALIB, "DELETED.csv"), "w", newline="",
               encoding="utf-8-sig") as fh:
         w = csv.writer(fh)
-        w.writerow(["지운 파일", "바이트", "이유"])
-        for p, s, why in dels:
-            w.writerow([os.path.relpath(p, HERE).replace("\\", "/"), s, why])
+        cols = ["대비_C", "거리_mm", "칸_px", "검출프레임", "국소대비_C", "프레임수"]
+        w.writerow(["지운 파일", "바이트", "이유"] + cols)
+        for p, s, why, m in dels:
+            w.writerow([os.path.relpath(p, HERE).replace("\\", "/"), s, why]
+                       + [m.get(c, "") for c in cols])
     for src, dst, _ in moves:
         shutil.move(src, dst)
-    for p, _, _ in dels:
+    for p, _, _, _ in dels:
         os.remove(p)
     # 빈 폴더 치우기
     for d in ("_all", "th", "th350", "th400", "th450", "th-test", "th-test-01",
