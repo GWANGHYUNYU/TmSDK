@@ -26,8 +26,12 @@ submit/
 .DS_Store
 Thumbs.db
 
-# 캘리브레이션 원본 녹화 (280 MB, 82 MB 파일 포함) — 저장소에 넣지 않는다
-calib/
+# 캘리브레이션 원본 녹화 (464 MB) — 저장소에 넣지 않는다.
+# 다만 무엇이 있는지 적어 둔 목록·설명은 넣는다 (녹화 자체는 아니다).
+calib/*
+!calib/README.md
+!calib/INDEX.csv
+!calib/DELETED.csv
 
 # 검출 확인용 덤프 이미지
 chk/
