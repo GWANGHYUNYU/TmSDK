@@ -20,7 +20,9 @@ After downloading the code, please refer to the **'Document/TmSDK Manual.pdf'** 
 |---|---|
 | [`docs/`](docs/) | **프로젝트 문서 전부.** 현황·기획·데이터·캘리브레이션 |
 | [`ubuntu_python_stream/`](ubuntu_python_stream/) | 녹화 프로그램과 캘리브레이션 도구 (Ubuntu 22.04) |
-| [`scripts/`](scripts/) | 검토·시각화 스크립트 |
+| [`scripts/`](scripts/) | 조사·정리·보정·검토 스크립트 |
+| [**`params/`**](params/README.md) | **확정된 카메라 파라미터.** 코드는 여기서 읽습니다 |
+| [`calib/`](calib/README.md) | 캘리브레이션 원본 (녹화는 저장소에 없음. 목록만) |
 | `window_python_stream/` | Windows 배포용 |
 | `output/`, `submit/` | 데이터·제출 서류 (저장소에 포함하지 않음) |
 
@@ -38,39 +40,51 @@ python3 read_y16.py check raw_output/      # 품질 진단
 ### 열화상 ↔ RGB 정합 캘리브레이션
 
 방사율 체커보드(무광 검정 시트지 + 바이브레이션 마감 금속) 기반입니다.
-자세한 절차는 [`docs/thermal_rgb_calibration.md`](docs/thermal_rgb_calibration.md),
-현장용 촬영표는 [`docs/confluence/`](docs/confluence/).
+확정된 파라미터는 [`params/`](params/README.md), 절차는
+[`docs/thermal_rgb_calibration.md`](docs/thermal_rgb_calibration.md),
+**다음 촬영 작업지시서**는
+[`docs/confluence/열화상_캘리브레이션_4차_촬영표.md`](docs/confluence/열화상_캘리브레이션_4차_촬영표.md).
 
 ```bash
-# 현장 — 촬영 직후 검출 확인
-python3 ubuntu_python_stream/check_board.py calib/th/ --frames 1
+# 현장 — 녹화가 생길 때마다 즉시 합격 판정 + 남은 구간 표시
+python3 scripts/live_check.py <녹화폴더>
+python3 scripts/live_check.py <녹화폴더> --cell 50 --pattern 5x4   # 먼 거리용 보드
 
-# 현장 — 열화상만으로 합격 판정 (RGB 없이)
-python3 ubuntu_python_stream/calibrate_thermal.py calib/th/ --frames 1 \
-    --focal 147.4 --measured pose16=<줄자mm>
+# 사무실 — 전수 조사 후 쓸 것만 남기고 날짜별로 정리
+python3 scripts/inventory.py calib/2026-09-14/thermal
+python3 scripts/consolidate_calib.py --apply
 
-# 검토 — 자세별 시각화 (요약 대시보드 + 전체 한 장 + 낱장)
-python3 scripts/review_shots.py calib/th/ --out output/calib_review --focal 147.4
-
-# 사무실 — 연속 RGB 를 자세별로 분할 후 스테레오
-python3 ubuntu_python_stream/pair_rgb.py session.mp4 calib/th/ --out calib/rgb/
-python3 ubuntu_python_stream/calibrate_pair.py calib/ --baseline <실측> --depth <실측>
+# 사무실 — RGB 내부 파라미터 → 스테레오 → 층별 호모그래피
+python3 scripts/calib_rgb.py calib/2026-08-28/rgb --out output/rgb_intrinsics
+python3 scripts/verify_rgb.py output/rgb_intrinsics/rgb_intrinsics.npz \
+    calib/2026-08-28 --max-dt 0.02 --max-blur 1.0 --cache
+python3 scripts/layer_homography.py output/rgb_verify/stereo.npz --depths 420 700 1000
 ```
 
-### ★ TMC160F 사양서와 실측이 다릅니다
+### ★ 사양서와 실측이 다릅니다
 
-| | 사양서 | **실측 (2026-08-28)** |
+| 열화상 TMC160F | 사양서 | **실측 (2026-08-28)** |
 |---|---|---|
 | 초점거리 | 208.4 px | **147.4 px** |
 | 화각 | 42° × 32° | **57.0° × 44.3°** |
 | 카메라 상수 | 4.75 mm/px/m | **6.78 mm/px/m** |
 
-서로 다른 두 거리(400·450 mm)에서 줄자로 잰 보드까지의 거리가 **1.2 % 이내**로
-일치했고, 보정을 쓰지 않은 순수 기하 계산으로도 같은 값이 나옵니다.
-
 물리 초점거리 **2.52 mm 는 원래 맞았습니다.** 화소 피치가 17.1 µm 인데 사양서의
 42° 는 12.1 µm 를 전제로 한 값입니다. **거리·GSD 를 다루는 모든 계산에서
 147.4 px 를 쓰십시오.**
+
+| RGB cam3 (2026-09-15 확정) | |
+|---|---|
+| 초점거리 | **1217 px** (1920×1080, 화각 76.5° × 47.9°) |
+| 왜곡 | k1 **−0.3665** · k2 **+0.1223** |
+| 두 카메라 회전 | pitch 4.4° · yaw 4.7° · roll 6.9° |
+| 베이스라인 ‖T‖ | **58.1 mm** ⚠ 미확정 (녹화를 바꾸면 53.5~69.2) |
+| 정합 오차 | 중앙 **1.25 px** |
+
+> **열화상은 RGB 대비 180° 회전 장착**입니다 — 정합 전에
+> `cv2.rotate(img, cv2.ROTATE_180)`. RGB 좌표는
+> `cv2.undistortPoints(..., P=K)` 로 왜곡을 먼저 푸십시오.
+> **캐노피는 3층(420 / 700 / 1000 mm)이고 층마다 다른 `H(d)` 를 씁니다.**
 
 ---
 

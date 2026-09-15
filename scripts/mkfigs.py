@@ -18,7 +18,7 @@ FONT = "Malgun Gothic, Segoe UI, sans-serif"
 
 NC, NR, CELL = 8, 5, 30.0          # 칸 8x5, 30 mm
 BW, BH = NC*CELL, NR*CELL          # 240 x 150 mm
-F, W, H = 208.4, 160, 120
+F, W, H = 147.4, 160, 120    # ★ 줄자로 확정된 초점거리 (사양 208.4 는 틀림)
 D0 = F*CELL/17.0                   # 칸 17 px 이 되는 거리 ≈ 368 mm
 
 

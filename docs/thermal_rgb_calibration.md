@@ -1,8 +1,10 @@
 # 열화상 ↔ RGB 정합 캘리브레이션 가이드
 
-**작성일**: 2026-08-11
-**대상**: TMC160F (160×120, FOV 42°×32°) + RGB (1920×1080, 광각)
+**작성일**: 2026-08-11 · **최종 갱신** 2026-09-15
+**대상**: TMC160F (160×120, **FOV 57.0°×44.3°** — 사양서 42°×32° 는 틀림)
+      + RGB cam3 (1920×1080, **FOV 76.5°×47.9°**)
 **전제**: 두 카메라가 알루미늄 레일에 매직암으로 인접 고정, 고정 후 불변
+**확정값**: [`params/`](../params/README.md) · **다음 촬영**: [4차 촬영표](confluence/열화상_캘리브레이션_4차_촬영표.md)
 
 ---
 
@@ -444,7 +446,7 @@ RGB 를 자세마다 따로 트리거하지 않고 **한 번에 계속 녹화**�
 
 ```bash
 # ① 자세별 RGB 프레임 추출 (열화상 파일 개수·순서에 맞춰 짝지음)
-python3 pair_rgb.py session.mp4 calib/th/ --out calib/rgb/
+python3 pair_rgb.py session.mp4 calib/<날짜>/thermal/ --out calib/<날짜>/rgb/
 
 # ② 캘리브레이션
 python3 calibrate_pair.py calib/ --baseline 50 --depth 457 --frames 1
@@ -461,8 +463,11 @@ python3 calibrate_pair.py calib/ --baseline 50 --depth 457 --frames 1
 
 | 폴더 | 받는 형식 |
 |---|---|
-| `calib/th/` | **`.y16raw`(권장)** · `.png` `.jpg` · `.avi` `.mp4` |
-| `calib/rgb/` | `.png` `.jpg` · `.mp4` `.avi` `.mov` `.mkv` |
+| `calib/<날짜>/thermal/` | **`.y16raw`(권장)** · `.png` `.jpg` · `.avi` `.mp4` |
+| `calib/<날짜>/rgb/` | `.png` `.jpg` · `.mp4` `.avi` `.mov` `.mkv` |
+
+> 폴더 구조는 2026-09-15 에 날짜별로 정리했습니다 — 옛 `calib/th/`,
+> `calib/th350/`, `calib/_all/` 은 없어졌습니다. [`calib/README.md`](../calib/README.md)
 
 - 영상은 균등 간격 15프레임을 훑어 **선명한 순으로** 검출을 시도합니다.
   흔들린 프레임이 섞여 있어도 쓸 만한 프레임이 자동으로 골라집니다.
@@ -574,7 +579,7 @@ RGB 처리를 사무실에서 하는 경우, 현장에서 **열화상만으로 �
 판정**하고 돌아와야 합니다. 다시 가는 비용이 크기 때문입니다.
 
 ```bash
-python3 calibrate_thermal.py calib/th/ --frames 1     --canopy 470 --measured pose04=475 --measured pose15=439
+python3 calibrate_thermal.py calib/<날짜>/thermal/ --frames 1     --canopy 470 --measured pose04=475 --measured pose15=439
 ```
 
 | 열화상 단독으로 판정 가능 | RGB 가 있어야 판정 가능 |
@@ -839,8 +844,8 @@ d_계산 = s × d_줄자 + c
 ### 5-5-7. 현장에서 돌아오기 전에 확인
 
 ```bash
-python3 check_board.py calib/th2/ --frames 1
-python3 calibrate_thermal.py calib/th2/ --frames 1 --measured <정면자세>=<실측mm>
+python3 check_board.py calib/<날짜>/thermal/ --frames 1
+python3 calibrate_thermal.py calib/<날짜>/thermal/ --frames 1 --measured <정면자세>=<실측mm>
 ```
 
 아래 4개가 통과하면 됩니다. **하나라도 ✗ 면 그 자리에서 더 찍으십시오.**
@@ -858,10 +863,10 @@ python3 calibrate_thermal.py calib/th2/ --frames 1 --measured <정면자세>=<�
 
 ```bash
 # ① 열화상 내부 파라미터 — 1차 + 2차 전부 사용
-python3 calibrate_thermal.py calib/_all/ --frames 1
+python3 calibrate_thermal.py calib/<날짜>/thermal/ --frames 1
 
 # ② RGB 를 자세별로 잘라내기
-python3 pair_rgb.py session.mp4 calib/th2/ --out calib/rgb/
+python3 pair_rgb.py session.mp4 calib/<날짜>/thermal/ --out calib/<날짜>/rgb/
 
 # ③ 스테레오 + 기준면 호모그래피 — 2차 쌍만
 python3 calibrate_pair.py calib/ --baseline <캘리퍼스 실측> --depth <잎표면거리> --frames 1
@@ -870,6 +875,12 @@ python3 calibrate_pair.py calib/ --baseline <캘리퍼스 실측> --depth <잎�
 ---
 
 ## 5-6. ★ 4차 촬영 지침 (2026-09-15 작성)
+
+> **현장에 가져갈 작업지시서는 따로 있습니다** →
+> [**4차 촬영표**](confluence/열화상_캘리브레이션_4차_촬영표.md)
+> (시간표·체크리스트·보드 제작·합격 기준). 이 절은 그 근거를 적은 것입니다.
+>
+> **4차의 목표는 베이스라인 하나입니다.** 나머지는 다 풀렸습니다.
 
 3차(09-14)에서 **123건을 찍어 68건을 건졌고, 그 중 RGB 와 짝지어진 것은
 1건**이었습니다. 아래 여섯 가지가 그 원인을 하나씩 없앱니다.
@@ -947,17 +958,26 @@ python3 calibrate_pair.py calib/ --baseline <캘리퍼스 실측> --depth <잎�
 거리에서 화면에 안 들어옵니다. 5×4 는 홀수×짝수라 180° 모호성도 없습니다.
 재료·제작법은 3장과 같습니다.
 
-### ⑤ RGB 내부 파라미터는 따로 찍으십시오 ★
+### ⑤ RGB 내부 파라미터 — ✅ 풀렸습니다. 남은 것은 귀퉁이뿐
 
-`f_rgb = 1299.5` 가 틀렸을 가능성이 큽니다 (0-D). 같은 판을 재는데 RGB 가
-열화상보다 9.8 % 멀게 나옵니다.
+**2026-09-15 에 재산출 완료** ([status.md 0-E](status.md), [`params/`](../params/README.md)).
 
-**이것은 열화상과 동시에 찍을 필요가 없습니다.** 캐노피 앞일 필요도
-없습니다. 밝은 곳에서 RGB 단독으로:
+| | 값 |
+|---|---|
+| fx = fy | **1217 px** (1 % 대역 1160~1270) |
+| cx, cy | 985.2, 553.1 |
+| 왜곡 | k1 **−0.3665** · k2 **+0.1223** |
+| 화각 | **76.5° × 47.9°** |
 
-- **20자세 이상**, 화면 **네 귀퉁이까지** 보드가 가도록
-- 거리 3단계 이상, 기울임 20° 넘는 자세 6개 이상
-- 귀퉁이 자세가 있어야 **배럴 왜곡**이 풀립니다 (화각 ~80°, 왜곡이 큽니다)
+~~`f_rgb = 1299.5`~~ 는 1 % 대역 밖이라 폐기합니다.
+
+**다만 왜곡이 화면 반경 660 px 안쪽만 자료로 뒷받침됩니다** (판이 최대
+반경의 76 % 까지만 갔습니다). 바깥 20 % 는 외삽이고, 귀퉁이 보정량
+416 px 는 믿을 값이 아닙니다.
+
+→ **화면 네 귀퉁이에 판을 걸치는 20자세**를 추가로 찍으면 됩니다.
+   열화상과 동시일 필요도, 캐노피 앞일 필요도 없습니다.
+   자세한 것은 [4차 촬영표 3장](confluence/열화상_캘리브레이션_4차_촬영표.md).
 
 ### ⑥ 현장에서 즉시 판정 ★
 
@@ -982,13 +1002,15 @@ python3 scripts/live_check.py <녹화폴더> --cell 50 --pattern 5x4
 
 | | |
 |---|---|
-| **언제** | 16:30 ~ 17:45 (소등 18:01 전) |
-| **무엇을** | 30 mm 보드 330~650 mm · 50 mm 보드 600~1100 mm |
-| **몇 개** | 보드당 20자세 안팎 (구간당 4 + 기울임 6) |
+| **목표** | **베이스라인 ‖T‖ 확정** — 지금 53.5~69.2 mm 로 흔들립니다 |
+| **언제** | **16:00 ~ 17:50** (소등 18:01 전) |
+| **무엇을** | 30 mm 보드 350~650 mm · **50 mm 보드 600~1100 mm (새로 제작)** |
+| **몇 개** | 30 mm **22자세** + 50 mm **18자세** = **RGB 와 겹치는 자세 40개** |
+| **깊이 폭** | **500 mm 이상** ← 이것이 T 를 구속합니다 (2026-08-28 은 96 mm) |
 | **판 관리** | 5~6자세마다 뒷면 재가열, 대비 2 ℃ 이상 |
 | **들기** | 눕혀서 앞뒤로 기울임. 화면 안에서 굴리지 말 것 |
 | **확인** | `live_check.py` 를 띄워 놓고 「남은 것」을 보며 진행 |
-| **추가** | RGB 단독 내부 파라미터용 20자세 (아무 때나, 밝은 곳) |
+| **추가** | RGB 왜곡용 **귀퉁이** 20자세 (아무 때나, 밝은 곳) |
 
 ---
 

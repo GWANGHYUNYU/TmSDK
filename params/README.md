@@ -8,6 +8,7 @@
 | `rgb_intrinsics.json` | RGB 내부 파라미터 + 왜곡 |
 | `thermal_rgb_stereo.json` | 두 카메라 사이의 R, T |
 | `layer_homography.json` | 캐노피 층별 RGB→열화상 호모그래피 |
+| `rgb_intrinsics.npz` · `thermal_rgb_stereo.npz` | 같은 값의 numpy 판. 스크립트가 읽습니다 |
 
 ## 쓰기 전에 반드시
 
