@@ -219,6 +219,12 @@ def judge(full, sub, best_ct, amp):
         ct = contrast_c(cels, c, pat) or 0.0
         if sq < MIN_SQ:
             return "못 살림", f"칸 {sq:.1f} px < {MIN_SQ} — 너무 멀다 · {ctxt}", None
+        # ★ 기하 검사만으로는 부족하다. 깨진 프레임의 모아레 무늬에서 7×4 가
+        #   «잡히는» 일이 있었다 (180721, 대비 0.09 ℃). 검정 칸과 금속 칸이
+        #   구별되지 않는다면 그것은 보드가 아니다.
+        if ct < MIN_CONTRAST:
+            return "못 살림", (f"7x4 가 잡혔으나 대비 {ct:.2f}℃ — 검정칸과 "
+                             f"금속칸이 구별되지 않는다. 오검출로 봄"), None
         return "살림(전체)", f"7x4 · 칸 {sq:.1f} px · 대비 {ct:.2f}℃ · {how}", \
                dict(dist=round(F_PX*CELL/sq), sq=round(sq, 1),
                     ct=round(ct, 2), pat="7x4", how=how, nframe=len(full))
