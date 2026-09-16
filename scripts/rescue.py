@@ -128,13 +128,37 @@ def checker_amplitude(cels, sizes=(6, 8, 10, 13, 17), angles=(0, 22.5, 45)):
 
 
 # ── ② 집요한 검출 ────────────────────────────────────────────────
+MAX_SPACING_RATIO = 2.5     # 이웃 코너 간격의 최대/최소. 투시로는 이보다 안 커진다
+
+
+def plausible(c, pat):
+    """잡힌 격자가 기하적으로 말이 되는가.
+
+    ★ 이 가드가 없으면 안 됩니다. 확대(×2·×3)와 CLAHE 를 걸면 검출기가
+      **캐노피 잎 무늬에서 가짜 격자를 만들어 냅니다.** 실제로 1000 mm
+      계열에서 칸 20.7 px(=거리 213 mm)짜리 «검출»이 나왔는데, 그려 보니
+      점들이 보드가 아니라 잎 위에 흩어져 있었고 간격 비가 4.0~36.4 였습니다.
+      진짜 보드는 투시가 심해도 2.5 를 넘지 않습니다.
+    """
+    g = c.reshape(pat[1], pat[0], 2)
+    d = np.concatenate([
+        np.linalg.norm(np.diff(g, axis=1), axis=2).ravel(),
+        np.linalg.norm(np.diff(g, axis=0), axis=2).ravel()])
+    if d.min() < 1.0:
+        return False
+    return bool(d.max()/d.min() < MAX_SPACING_RATIO)
+
+
 def hard_detect(cels, pats, upscales=(1, 2, 3)):
-    """정규화 × 확대 × 격자를 모두 시도 → (ok, corners, pat, 방법)."""
+    """정규화 × 확대 × 격자를 모두 시도 → (ok, corners, pat, 방법).
+
+    기하적으로 말이 안 되는 격자는 버리고 계속 찾습니다.
+    """
     for nm, fn in NORMS:
         g = fn(cels)
         for up in upscales:
             ok, c, pat, how = detect(g, pats, up)
-            if ok:
+            if ok and plausible(c, pat):
                 return True, c, pat, f"{nm}·x{up}·{how}"
     return False, None, None, "-"
 
@@ -203,6 +227,15 @@ def judge(full, sub, best_ct, amp):
             sub, key=lambda t: contrast_c(t[4], t[1], t[2]) or 0)
         sq = square_px(c, pat)
         ct = contrast_c(cels, c, pat) or 0.0
+        # 여러 프레임의 칸 크기가 서로 맞아야 진짜다. 오검출은 흩어진다.
+        sqs = np.array([square_px(t[1], t[2]) for t in sub])
+        spread = float(np.ptp(sqs)/max(np.median(sqs), 1e-6))
+        if spread > 0.35:
+            return "못 살림", (f"부분격자가 프레임마다 칸 {sqs.min():.1f}~"
+                             f"{sqs.max():.1f} px 로 흩어짐 — 오검출로 봄"), None
+        if ct < MIN_CONTRAST:
+            return "못 살림", (f"부분격자는 잡혔으나 대비 {ct:.2f}℃ — "
+                             f"무늬가 잡음에 묻힘"), None
         if sq < MIN_SQ:
             return "못 살림", f"부분격자도 칸 {sq:.1f} px — 너무 멀다", None
         return "살림(부분)", (f"{pat[0]}x{pat[1]} · {len(sub)}프레임 · "
