@@ -96,7 +96,7 @@ def main():
         files.update(gather(d))
     vids = []
     for f in sorted(os.listdir(args.rgb_dir)):
-        m = re.match(r"(\d{2})-(\d{2})-(\d{2})", f)
+        m = re.search(r"(?:^|[_-])(\d{2})-(\d{2})-(\d{2})(?=\.|$|[_-])", f)
         if not m or not f.lower().endswith((".mp4", ".avi", ".mkv")):
             continue
         p = os.path.join(args.rgb_dir, f)

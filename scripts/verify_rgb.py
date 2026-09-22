@@ -40,6 +40,23 @@ F_TH = 147.4
 BASELINE_MM = 51.9
 
 
+def rgb_start_sec(name):
+    """RGB 파일명에서 시작 시각(초)을 읽는다.
+
+    두 가지 규칙을 모두 받는다.
+        16-24-53.mp4                        (2026-08-28)
+        cam3_2026-09-18_16-50-24.mp4        (2026-09-18 부터)
+    """
+    b = os.path.basename(name)
+    m = re.search(r"(?:^|[_-])(\d{2})-(\d{2})-(\d{2})(?=\.|$|[_-])", b)
+    if not m:
+        return None
+    h, mi, s = (int(v) for v in m.groups())
+    if h > 23 or mi > 59 or s > 59:
+        return None
+    return h*3600 + mi*60 + s
+
+
 def obj_pts():
     o = np.zeros((PAT[0]*PAT[1], 3), np.float32)
     o[:, :2] = np.mgrid[0:PAT[0], 0:PAT[1]].T.reshape(-1, 2)*CELL
@@ -157,8 +174,8 @@ def main():
 
     vids = []
     for f in sorted(os.listdir(os.path.join(args.session, "rgb"))):
-        m = re.match(r"(\d{2})-(\d{2})-(\d{2})", f)
-        if not m:
+        s0 = rgb_start_sec(f)
+        if s0 is None:
             continue
         p = os.path.join(args.session, "rgb", f)
         cap = cv2.VideoCapture(p)
@@ -166,7 +183,6 @@ def main():
         cap.release()
         if fps <= 0 or n <= 0:
             continue
-        s0 = sum(int(v)*k for v, k in zip(m.groups(), (3600, 60, 1)))
         vids.append((p, s0, n/fps))
 
     cpath = os.path.join(args.out, 'pairs.npz')

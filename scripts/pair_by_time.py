@@ -41,8 +41,9 @@ def th_start(name):
 
 
 def rgb_start(name):
-    """16-24-53.mp4 → time"""
-    m = re.match(r"(\d{2})-(\d{2})-(\d{2})", os.path.basename(name))
+    """16-24-53.mp4 · cam3_2026-09-18_16-50-24.mp4 → time"""
+    m = re.search(r"(?:^|[_-])(\d{2})-(\d{2})-(\d{2})(?=\.|$|[_-])",
+                  os.path.basename(name))
     if not m:
         return None
     return dt.time(*(int(v) for v in m.groups()))
