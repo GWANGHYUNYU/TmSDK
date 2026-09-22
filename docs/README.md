@@ -14,13 +14,14 @@
 | 4 | [data_and_tools.md](data_and_tools.md) | 데이터 형식·보존 정책·도구 사용법·전처리 | 20분 |
 | 5 | [thermal_rgb_calibration.md](thermal_rgb_calibration.md) | 열화상↔RGB 정합 캘리브레이션 실무 가이드 | 15분 |
 | 6 | [distance_registry.md](distance_registry.md) | **거리 대장** — 실측·역산 전부. 거리 수치는 여기가 기준 | 10분 |
+| ★ | [**calibration_final.md**](calibration_final.md) | **정합 캘리브레이션 최종 보고** — 확정값·근거·함정·다음 단계 | 12분 |
 | — | [**params/**](../params/README.md) | **확정된 카메라 파라미터.** 코드는 여기서 읽습니다 | 3분 |
 | — | [**calib/**](../calib/README.md) | 캘리브레이션 원본 3세션 169건의 목록과 정리 규칙 | 3분 |
 | — | [confluence/](confluence/) | 현장용 발췌 — **4차 촬영표**(현행)와 도해 4종 | — |
 
-> ✅ **정합 캘리브레이션은 2026-09-18 자료로 완료됐습니다**
-> ([status.md 0-F](status.md)). 확정 파라미터는
-> [`params/`](../params/README.md) 에서 읽으십시오.
+> ✅ **정합 캘리브레이션은 종료됐습니다** (2026-09-18 자료).
+> 전체 내용은 [**최종 보고**](calibration_final.md) 한 장에 정리돼 있고,
+> 코드가 읽을 값은 [`params/`](../params/README.md) 에 있습니다.
 
 시간이 없다면 **2번(status.md)만** 읽으십시오. 무엇을 해야 하는지는 거기 다 있습니다.
 

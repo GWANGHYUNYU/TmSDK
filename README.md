@@ -42,9 +42,10 @@ python3 read_y16.py check raw_output/      # 품질 진단
 방사율 체커보드(무광 검정 시트지 + 바이브레이션 마감 금속) 기반입니다.
 확정된 파라미터는 [`params/`](params/README.md), 절차는
 [`docs/thermal_rgb_calibration.md`](docs/thermal_rgb_calibration.md),
+✅ **정합 캘리브레이션은 종료됐습니다** (2026-09-18 자료, 정합 오차 0.93 px).
+전체 내용은 [**최종 보고**](docs/calibration_final.md) 한 장에 있습니다.
 촬영 작업지시서(4차 = 최종)는
 [`docs/confluence/열화상_캘리브레이션_4차_촬영표.md`](docs/confluence/열화상_캘리브레이션_4차_촬영표.md).
-**정합 캘리브레이션은 2026-09-18 자료로 완료됐습니다.**
 
 ```bash
 # 현장 — 녹화가 생길 때마다 즉시 합격 판정 + 남은 구간 표시
