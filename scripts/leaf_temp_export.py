@@ -108,7 +108,10 @@ def main():
     ap.add_argument("annot")
     ap.add_argument("--package", default="output/annotate_v2")
     ap.add_argument("--params", default="params/thermal_rgb_stereo.npz")
-    ap.add_argument("--cam", default="192_168_0_151")
+    ap.add_argument("--cams", default="",
+                    help="비우면 raw 폴더의 카메라를 전부 훑는다")
+    ap.add_argument("--cam", default="192_168_0_151",
+                    help="기준 프레임이 속한 카메라")
     ap.add_argument("--ref-day", default="20260918")
     ap.add_argument("--ref-slot", default="080000",
                     help="어노테이션을 칠한 슬롯 (정합 기준)")
@@ -134,48 +137,93 @@ def main():
                         f"{args.cam}_{args.ref_day}_{args.ref_slot}.y16raw")
     ref = struct(LTS.slot_mean(refp)[0])
 
-    days = sorted({re.search(r"_(\d{8})_", os.path.basename(p)).group(1)
-                   for p in glob.glob(os.path.join(
-                       HERE, args.raw, f"{args.cam}_*.y16raw"))})
-    print(f"  이 카메라의 날짜 {len(days)}개: {' '.join(days)}\n")
+    allf = glob.glob(os.path.join(HERE, args.raw, "*.y16raw"))
+    cams = ([c.strip() for c in args.cams.split(",") if c.strip()] or
+            sorted({re.match(r"(.+)_\d{8}_\d{6}\.y16raw",
+                             os.path.basename(p)).group(1) for p in allf}))
+    print(f"  카메라 {len(cams)}대: {' '.join(c[-3:] for c in cams)}")
 
-    print(f"  {'날짜':>10}{'슬롯':>6}{'주간':>6}{'상관':>8}{'이동':>9}"
-          f"{'일관성':>8}  판정")
     rows, summary = [], []
-    for day in days:
-        slots = read_slots(args.raw, args.cam, day)
-        if not slots:
-            print(f"  {day:>10}{0:>6}     — 쓸 수 있는 슬롯 없음")
-            continue
-        nday = sum(1 for s in slots if DAY_H[0] <= int(s[0][:2]) <= DAY_H[1])
-        v, corr, dx, dy, agree = judge(slots, ref)
-        print(f"  {day:>10}{len(slots):>6}{nday:>6}{corr:>8.3f}"
-              f"{f'({dx:+d},{dy:+d})':>9}{agree*100:>7.0f}%  {v}"
-              + ("" if v != "불가" else "  ← 마스크 못 씀"))
-        summary.append(dict(날짜=day, 슬롯수=len(slots), 주간슬롯=nday,
-                            상관=round(corr, 3), dx=dx, dy=dy,
-                            일관성=round(agree, 3), 마스크판정=v))
+    for cam in cams:
+        days = sorted({re.search(r"_(\d{8})_", os.path.basename(p)).group(1)
+                       for p in glob.glob(os.path.join(
+                           HERE, args.raw, f"{cam}_*.y16raw"))})
+        print(f"\n── 카메라 {cam[-3:]} · 날짜 {len(days)}개 "
+              f"({days[0]} ~ {days[-1]}) " + "─"*30)
+
+        # ★ 값싼 선별을 먼저 한다. 카메라가 다르면 장면이 통째로 다른데,
+        #   날짜마다 1565프레임을 다 읽어 «불가» 를 확인하는 것은 낭비다
+        #   (.152 만 900슬롯). 대표 주간 슬롯 하나로 먼저 거른다.
+        if cam != args.cam:
+            probe = None
+            for day in days:
+                for p in sorted(glob.glob(os.path.join(
+                        HERE, args.raw, f"{cam}_{day}_1*.y16raw"))):
+                    if os.path.getsize(p) < 1e6:
+                        continue
+                    try:
+                        probe = (day, LTS.slot_mean(p)[0])
+                    except Exception:
+                        continue
+                    break
+                if probe:
+                    break
+            if probe is None:
+                print("  대표 슬롯을 못 읽었습니다 — 건너뜁니다")
+                continue
+            c0, dx0, dy0 = best_shift(ref, struct(probe[1]), rad=20)
+            print(f"  대표 슬롯 {probe[0]} 로 선별 — 기준과 최대상관 "
+                  f"{c0:+.3f} @ ({dx0:+d},{dy0:+d})")
+            if c0 < MIN_CORR:
+                print(f"  ★ 다른 장면입니다. 이 카메라 전체를 뺍니다 "
+                      f"({len(days)}일). 이 마스크로는 잴 수 없습니다.")
+                for day in days:
+                    n = len(glob.glob(os.path.join(
+                        HERE, args.raw, f"{cam}_{day}_*.y16raw")))
+                    summary.append(dict(카메라=cam[-3:], 날짜=day, 슬롯수=n,
+                                        주간슬롯="", 상관=round(c0, 3),
+                                        dx=dx0, dy=dy0, 일관성="",
+                                        마스크판정="불가(다른 카메라)"))
+                continue
+
+        print(f"  {'날짜':>10}{'슬롯':>6}{'주간':>6}{'상관':>8}{'이동':>9}"
+              f"{'일관성':>8}  판정")
+        for day in days:
+            slots = read_slots(args.raw, cam, day)
+            if not slots:
+                print(f"  {day:>10}{0:>6}     — 쓸 수 있는 슬롯 없음")
+                continue
+            nday = sum(1 for s in slots
+                       if DAY_H[0] <= int(s[0][:2]) <= DAY_H[1])
+            v, corr, dx, dy, agree = judge(slots, ref)
+            print(f"  {day:>10}{len(slots):>6}{nday:>6}{corr:>8.3f}"
+                  f"{f'({dx:+d},{dy:+d})':>9}{agree*100:>7.0f}%  {v}"
+                  + ("" if v != "불가" else "  ← 마스크 못 씀"))
+            summary.append(dict(카메라=cam[-3:], 날짜=day, 슬롯수=len(slots),
+                                주간슬롯=nday, 상관=round(corr, 3),
+                                dx=dx, dy=dy, 일관성=round(agree, 3),
+                                마스크판정=v))
         # ★ «판정불가» 도 빼야 한다. 주간 슬롯이 없어 심사를 못 한 날은
         #   «통과» 가 아니라 «모름» 이다. 09-14 가 그런 날인데, 하필
         #   체커보드를 들고 찍은 캘리브레이션 촬영일이라 장면이 아예 다르다.
-        if v in ("불가", "판정불가") and not args.include_invalid:
-            continue
-        for lab, hh, cels, ok, tot in slots:
-            fit, gmag = LTS.edge_fit(cels, polys)
-            for o in objs:
-                rows.append({
-                    "날짜": day, "시각": lab, "시": round(hh, 3),
-                    "카메라": args.cam[-3:], "개체": o["key"],
-                    "출처프레임": o["src"], "분류": o["cls"], "층_mm": o["layer"],
-                    "면적_px": o["area"],
-                    "엽온_C": round(float(cels[o["mask"]].mean()), 3),
-                    "화면평균_C": round(float(cels.mean()), 3),
-                    "유효프레임": ok, "전체프레임": tot,
-                    "슬롯온전": int(ok >= 0.95*tot), "마스크판정": v,
-                    "마스크적합": round(fit, 3),
-                    "열구조세기": round(gmag, 3),
-                    "점등": int(8 <= hh < 18),
-                })
+            if v in ("불가", "판정불가") and not args.include_invalid:
+                continue
+            for lab, hh, cels, ok, tot in slots:
+                fit, gmag = LTS.edge_fit(cels, polys)
+                for o in objs:
+                    rows.append({
+                        "날짜": day, "시각": lab, "시": round(hh, 3),
+                        "카메라": cam[-3:], "개체": o["key"],
+                        "출처프레임": o["src"], "분류": o["cls"],
+                        "층_mm": o["layer"], "면적_px": o["area"],
+                        "엽온_C": round(float(cels[o["mask"]].mean()), 3),
+                        "화면평균_C": round(float(cels.mean()), 3),
+                        "유효프레임": ok, "전체프레임": tot,
+                        "슬롯온전": int(ok >= 0.95*tot), "마스크판정": v,
+                        "마스크적합": round(fit, 3),
+                        "열구조세기": round(gmag, 3),
+                        "점등": int(8 <= hh < 18),
+                    })
 
     if not rows:
         raise SystemExit("\n  마스크가 유효한 날이 없습니다.")
@@ -189,19 +237,21 @@ def main():
     bykey = {}
     for r in rows:
         if r["점등"] and r["분류"] == "잎":
-            bykey.setdefault((r["날짜"], r["시각"]), {})[r["개체"]] = r["엽온_C"]
+            bykey.setdefault((r["카메라"], r["날짜"], r["시각"]),
+                             {})[r["개체"]] = r["엽온_C"]
 
-    def devvec(day):
-        ss = [k for k in bykey if k[0] == day]
+    def devvec(cam, day):
+        """카메라까지 봐야 한다 — 날짜만 보면 .152 행이 .151 값을 끌어온다."""
+        ss = [k for k in bykey if k[0] == cam and k[1] == day]
         if not ss:
             return None
         M = np.array([[bykey[s][k] for k in leaf_keys] for s in ss])
         return (M - M.mean(1, keepdims=True)).mean(0)
 
-    base = devvec(args.ref_day)
+    base = devvec(args.cam[-3:], args.ref_day)
     print(f"\n  교차검증 — 개체별 편차가 기준일({args.ref_day})과 같은가")
     for s in summary:
-        v = devvec(s["날짜"])
+        v = devvec(s["카메라"], s["날짜"])
         s["개체편차상관"] = ("" if v is None or base is None
                        else round(float(np.corrcoef(v, base)[0, 1]), 3))
         if s["개체편차상관"] == "":
@@ -209,7 +259,7 @@ def main():
         c = s["개체편차상관"]
         mark = ("동일 개체를 덮고 있음" if c >= 0.85 else
                 "확인 필요" if c >= 0.60 else "★ 다른 자리를 덮고 있음")
-        print(f"    {s['날짜']}  r = {c:+.3f}   {mark}")
+        print(f"    {s['카메라']} {s['날짜']}  r = {c:+.3f}   {mark}")
 
     p1 = os.path.join(args.out, "leaf_temp_all.csv")
     with open(p1, "w", newline="", encoding="utf-8-sig") as fh:

@@ -16,6 +16,7 @@
 | 6 | [distance_registry.md](distance_registry.md) | **거리 대장** — 실측·역산 전부. 거리 수치는 여기가 기준 | 10분 |
 | ★ | [**calibration_final.md**](calibration_final.md) | **정합 캘리브레이션 최종 보고** — 확정값·근거·함정·다음 단계 | 12분 |
 | ★ | [**report/mid-term/**](../report/mid-term/README.md) | **중간보고** — 엽온·VPD·팬 효과 측정 결과. 대외 설명은 여기서 | 15분 |
+| ★ | [**segmentation_guide.md**](segmentation_guide.md) | **개체 분할 가이드** — 대표 RGB·열화상에서 잎·꽃·열매 찍는 법 | 10분 |
 | — | [calibration_verification_log.md](calibration_verification_log.md) | 검증 수치 기록 — 결론을 재검증·반박하려는 사람용 | 8분 |
 | — | [**params/**](../params/README.md) | **확정된 카메라 파라미터.** 코드는 여기서 읽습니다 | 3분 |
 | — | [**calib/**](../calib/README.md) | 캘리브레이션 원본 3세션 169건의 목록과 정리 규칙 | 3분 |
