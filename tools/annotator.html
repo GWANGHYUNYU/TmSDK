@@ -1,0 +1,460 @@
+<meta charset="utf-8">
+<title>개체 어노테이션 도구</title>
+<style>
+:root{
+  --bg:#14181d; --panel:#1c2229; --line:#2e3742; --ink:#e6edf3; --dim:#8b97a5;
+  --acc:#4aa3ff; --ok:#3fb950; --warn:#d29922; --bad:#f85149;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:13px/1.5 "Malgun Gothic","Segoe UI",system-ui,sans-serif;
+  display:flex;height:100vh;overflow:hidden}
+#side{width:290px;flex:none;background:var(--panel);border-right:1px solid var(--line);
+  display:flex;flex-direction:column;overflow-y:auto}
+#side h1{font-size:14px;margin:12px 12px 4px;letter-spacing:.02em}
+#side h2{font-size:11px;color:var(--dim);margin:14px 12px 5px;
+  text-transform:uppercase;letter-spacing:.08em;font-weight:600}
+.box{padding:0 12px 10px}
+button,select,input[type=text]{font:inherit;color:var(--ink);background:#252d36;
+  border:1px solid var(--line);border-radius:6px;padding:5px 9px}
+button{cursor:pointer}
+button:hover{background:#2e3742}
+button.on{background:var(--acc);border-color:var(--acc);color:#04121f;font-weight:700}
+.row{display:flex;gap:5px;flex-wrap:wrap}
+.row>*{flex:1;min-width:0}
+label.ck{display:flex;align-items:center;gap:7px;padding:3px 0;cursor:pointer}
+#stage{flex:1;position:relative;overflow:hidden;background:#0d1117}
+canvas{position:absolute;top:0;left:0;image-rendering:auto}
+#hud{position:absolute;left:10px;bottom:10px;background:#0009;padding:5px 9px;
+  border-radius:6px;font-size:11px;color:#cbd5e1;pointer-events:none;
+  white-space:pre;font-family:Consolas,monospace}
+#list{margin:0 12px;max-height:300px;overflow-y:auto;border:1px solid var(--line);
+  border-radius:6px}
+.item{display:flex;align-items:center;gap:6px;padding:4px 7px;cursor:pointer;
+  border-bottom:1px solid #232b34;font-size:12px}
+.item:last-child{border-bottom:0}
+.item:hover{background:#252d36}
+.item.sel{background:#1b3a5c}
+.sw{width:11px;height:11px;border-radius:3px;flex:none}
+.item b{font-weight:600}
+.item small{color:var(--dim);margin-left:auto}
+.note{font-size:11px;color:var(--dim);padding:0 12px 8px;line-height:1.55}
+.k{display:inline-block;background:#252d36;border:1px solid var(--line);
+  border-radius:4px;padding:0 4px;font-family:Consolas,monospace;font-size:10px}
+#files{font-size:11px}
+.lay{display:flex;gap:4px}
+.lay button{font-size:11px;padding:4px 0}
+hr{border:0;border-top:1px solid var(--line);margin:10px 12px}
+</style>
+
+<div id="side">
+  <h1>개체 어노테이션</h1>
+  <div class="note">RGB 를 <b>180° 뒤집어</b> 보여 줍니다(현장 기준 정상 방향).
+    좌표는 <b>원본 파일 좌표</b>로 저장되니 그대로 투영에 쓰면 됩니다.</div>
+
+  <h2>1 · 이미지</h2>
+  <div class="box">
+    <div class="row"><button id="bOpen">이미지 열기…</button></div>
+    <input type="file" id="fIn" accept="image/*" multiple hidden>
+    <div class="row" style="margin-top:5px">
+      <button id="bPrev">◀ 이전</button><button id="bNext">다음 ▶</button>
+    </div>
+    <div id="files" class="note" style="padding:6px 0 0">아직 없음</div>
+  </div>
+
+  <h2>2 · 도구</h2>
+  <div class="box">
+    <div class="row">
+      <button class="tool on" data-t="poly">폴리곤 <span class="k">1</span></button>
+      <button class="tool" data-t="rect">사각형 <span class="k">2</span></button>
+    </div>
+    <div class="row" style="margin-top:5px">
+      <button class="tool" data-t="line">선 <span class="k">3</span></button>
+      <button class="tool" data-t="point">점 <span class="k">4</span></button>
+    </div>
+  </div>
+
+  <h2>3 · 층 (깊이)</h2>
+  <div class="box">
+    <div class="lay">
+      <button class="lay-b on" data-d="420">420</button>
+      <button class="lay-b" data-d="700">700</button>
+      <button class="lay-b" data-d="1000">1000</button>
+    </div>
+    <div class="note" style="padding:6px 0 0">
+      뒤집은 화면에서 <b>위쪽이 420</b>(가까움), 가운데가 700,
+      그 아래가 1000 입니다. 층을 잘못 고르면 투영이 <b>7~11 화소</b> 어긋납니다.
+    </div>
+  </div>
+
+  <h2>4 · 이름표</h2>
+  <div class="box">
+    <input type="text" id="tLabel" placeholder="예: 6-4  (비워도 됩니다)" style="width:100%">
+  </div>
+
+  <h2>5 · 보기</h2>
+  <div class="box">
+    <label class="ck"><input type="checkbox" id="cFlip" checked> RGB 180° 뒤집기</label>
+    <label class="ck"><input type="checkbox" id="cFov" checked> 열화상 화각 경계</label>
+    <label class="ck"><input type="checkbox" id="cDim" checked> 화각 밖 어둡게</label>
+    <label class="ck"><input type="checkbox" id="cFill" checked> 채워서 보기</label>
+    <div class="row" style="margin-top:6px">
+      <button id="bFit">화면 맞춤 <span class="k">F</span></button>
+      <button id="b100">100 % <span class="k">0</span></button>
+    </div>
+  </div>
+
+  <h2>6 · 개체 <span id="cnt" style="color:var(--acc)"></span></h2>
+  <div id="list"></div>
+  <div class="box" style="padding-top:8px">
+    <div class="row">
+      <button id="bUndo">되돌리기 <span class="k">Ctrl+Z</span></button>
+      <button id="bDel">삭제 <span class="k">Del</span></button>
+    </div>
+    <div class="row" style="margin-top:5px">
+      <button id="bClr">이 장 비우기</button>
+    </div>
+  </div>
+
+  <hr>
+  <h2>7 · 내보내기</h2>
+  <div class="box">
+    <div class="row"><button id="bJson">JSON 저장</button><button id="bMask">마스크 PNG</button></div>
+    <div class="row" style="margin-top:5px"><button id="bLoad">JSON 불러오기…</button></div>
+    <input type="file" id="jIn" accept=".json" hidden>
+    <div class="note" style="padding:6px 0 0">작업은 브라우저에 자동 저장됩니다.
+      창을 닫아도 남습니다.</div>
+  </div>
+
+  <hr>
+  <div class="note">
+    <b>쓰는 법</b><br>
+    폴리곤·선 — 클릭으로 점 찍고 <span class="k">Enter</span> 또는 시작점 클릭으로 닫기,
+    <span class="k">Esc</span> 취소<br>
+    사각형 — 드래그<br>
+    점 — 클릭<br>
+    확대 <span class="k">휠</span> · 이동 <span class="k">Space+드래그</span> 또는 <span class="k">가운데 버튼</span><br>
+    꼭짓점은 <b>끌어서 수정</b>, <span class="k">Alt+클릭</span>으로 삭제
+  </div>
+</div>
+
+<div id="stage">
+  <canvas id="cv"></canvas>
+  <div id="hud"></div>
+</div>
+
+<script>
+"use strict";
+// ── 열화상 화각 경계 (원본 RGB 파일 좌표, 1920×1080) ──────────────
+// params/ 확정값으로 계산. index.json 을 불러오면 덮어씁니다.
+const FOV = {
+ 420:[[485.5,234.8],[553.9,229.4],[626.1,224.9],[701.4,221.3],[779.2,218.8],[858.9,217.4],[939.6,217.1],[1020.5,217.9],[1100.8,219.8],[1179.8,222.8],[1256.6,226.8],[1330.7,231.8],[1401.5,237.5],[1468.6,244.0],[1531.6,251.1],[1590.4,258.6],[1639.7,265.6],[1648.7,331.7],[1656.3,400.2],[1662.2,470.8],[1666.3,542.8],[1668.5,615.8],[1668.7,689.2],[1666.9,762.1],[1663.1,834.1],[1657.5,904.5],[1650.3,973.0],[1641.8,1039.1],[1633.4,1096.6],[1576.3,1109.1],[1515.9,1121.5],[1451.6,1133.4],[1383.6,1144.3],[1311.9,1153.9],[1236.9,1162.0],[1159.3,1168.1],[1079.5,1172.3],[998.6,1174.3],[917.3,1174.1],[836.4,1171.7],[756.9,1167.1],[679.5,1160.5],[604.9,1152.0],[533.7,1142.0],[472.6,1132.0],[464.9,1065.3],[458.3,995.0],[453.2,921.5],[449.8,845.3],[448.3,766.9],[448.6,687.3],[450.8,607.3],[454.9,527.6],[460.6,449.2],[467.9,372.7],[476.6,298.7]],
+ 700:[[449.6,239.2],[514.7,233.5],[583.5,228.6],[655.7,224.5],[730.7,221.4],[807.9,219.3],[886.6,218.3],[965.9,218.4],[1045.3,219.5],[1123.8,221.7],[1200.8,225.0],[1275.6,229.1],[1347.6,234.2],[1416.3,240.0],[1481.3,246.5],[1542.3,253.5],[1593.8,260.1],[1602.7,326.3],[1610.2,395.1],[1616.2,465.9],[1620.4,538.4],[1622.9,611.8],[1623.6,685.5],[1622.3,759.0],[1619.1,831.4],[1614.1,902.3],[1607.5,971.1],[1599.5,1037.5],[1591.4,1094.9],[1532.8,1107.1],[1470.6,1118.8],[1404.6,1129.7],[1335.0,1139.5],[1262.0,1147.8],[1186.3,1154.4],[1108.3,1159.2],[1028.8,1161.9],[948.6,1162.5],[868.5,1161.0],[789.4,1157.5],[712.1,1151.9],[637.2,1144.4],[565.4,1135.4],[497.0,1125.0],[438.6,1114.8],[430.6,1048.8],[423.8,979.7],[418.5,907.6],[414.9,833.0],[413.1,756.6],[413.3,679.0],[415.3,601.2],[419.2,523.8],[424.9,447.6],[432.1,373.3],[440.8,301.4]],
+ 1000:[[433.9,241.2],[497.5,235.4],[564.8,230.3],[635.5,226.0],[709.2,222.7],[785.2,220.4],[862.8,219.0],[941.4,218.8],[1020.2,219.6],[1098.4,221.4],[1175.3,224.3],[1250.3,228.1],[1322.7,232.8],[1392.0,238.3],[1457.8,244.5],[1519.8,251.3],[1572.3,257.7],[1581.0,324.0],[1588.5,392.8],[1594.4,463.8],[1598.8,536.3],[1601.4,609.8],[1602.2,683.8],[1601.2,757.4],[1598.3,830.1],[1593.7,901.2],[1587.4,970.2],[1579.7,1036.6],[1571.9,1094.1],[1512.5,1106.0],[1449.5,1117.4],[1382.7,1127.8],[1312.4,1137.0],[1239.0,1144.7],[1163.0,1150.6],[1084.9,1154.7],[1005.7,1156.9],[925.9,1156.9],[846.5,1154.9],[768.4,1150.8],[692.1,1144.8],[618.4,1137.0],[547.9,1127.7],[480.8,1117.2],[423.5,1107.0],[415.5,1041.4],[408.6,972.7],[403.2,901.3],[399.6,827.4],[397.7,751.9],[397.8,675.3],[399.8,598.5],[403.7,522.1],[409.3,446.9],[416.4,373.6],[425.1,302.6]]
+};
+const LAYER_COL = {420:"#4aa3ff",700:"#3fb950",1000:"#d29922"};
+const PALETTE = ["#ff4d4d","#4dff88","#4d9cff","#ffe14d","#ff4df0","#4dffee",
+                 "#ff9a4d","#a64dff","#4dffb0","#ff4d94","#b0ff4d","#4dc4ff"];
+
+const S = {
+  imgs:[], idx:-1, img:null, W:0, H:0,
+  shapes:{},            // 파일이름 → 배열
+  tool:"poly", layer:420, draft:null, sel:-1,
+  zoom:1, ox:0, oy:0, pan:null, drag:null, undo:[]
+};
+const cv = document.getElementById("cv"), ctx = cv.getContext("2d");
+const $ = id => document.getElementById(id);
+const cur = () => S.idx<0 ? null : S.imgs[S.idx];
+const list = () => { const c=cur(); if(!c) return []; return S.shapes[c.name] ||= []; };
+
+// ── 좌표 변환 ────────────────────────────────────────────────────
+// 저장은 «원본 파일 좌표». 화면은 뒤집어 보여 준다.
+const flip = () => $("cFlip").checked;
+function fileToView(p){ return flip() ? [S.W-1-p[0], S.H-1-p[1]] : [p[0],p[1]]; }
+function viewToFile(p){ return flip() ? [S.W-1-p[0], S.H-1-p[1]] : [p[0],p[1]]; }
+function toScreen(p){ const v=fileToView(p); return [v[0]*S.zoom+S.ox, v[1]*S.zoom+S.oy]; }
+function toImage(x,y){ return viewToFile([(x-S.ox)/S.zoom, (y-S.oy)/S.zoom]); }
+
+function resize(){
+  const r = $("stage").getBoundingClientRect();
+  cv.width = r.width; cv.height = r.height; draw();
+}
+function fit(){
+  if(!S.img) return;
+  const r=$("stage").getBoundingClientRect();
+  S.zoom = Math.min(r.width/S.W, r.height/S.H)*0.96;
+  S.ox = (r.width - S.W*S.zoom)/2; S.oy = (r.height - S.H*S.zoom)/2; draw();
+}
+
+// ── 그리기 ───────────────────────────────────────────────────────
+function draw(){
+  ctx.fillStyle="#0d1117"; ctx.fillRect(0,0,cv.width,cv.height);
+  if(!S.img){ hud("이미지를 열어 주십시오"); return; }
+  ctx.save();
+  ctx.translate(S.ox,S.oy); ctx.scale(S.zoom,S.zoom);
+  if(flip()){ ctx.translate(S.W,S.H); ctx.rotate(Math.PI); }
+  ctx.drawImage(S.img,0,0);
+  ctx.restore();
+
+  if($("cDim").checked && FOV[420]) dimOutside();
+  if($("cFov").checked) for(const d of [420,700,1000]) fovLine(d);
+
+  const arr=list();
+  arr.forEach((s,i)=>shape(s,i===S.sel));
+  if(S.draft) shape(S.draft,true,true);
+  hud();
+  renderList();
+}
+function dimOutside(){
+  ctx.save();
+  ctx.beginPath(); ctx.rect(0,0,cv.width,cv.height);
+  const p=FOV[420].map(toScreen);
+  ctx.moveTo(p[0][0],p[0][1]); for(let i=p.length-1;i>0;i--) ctx.lineTo(p[i][0],p[i][1]);
+  ctx.closePath(); ctx.fillStyle="#000a"; ctx.fill("evenodd"); ctx.restore();
+}
+function fovLine(d){
+  const p=FOV[d]; if(!p) return;
+  ctx.save(); ctx.beginPath();
+  p.forEach((q,i)=>{ const s=toScreen(q); i?ctx.lineTo(s[0],s[1]):ctx.moveTo(s[0],s[1]); });
+  ctx.closePath();
+  ctx.lineWidth=3; ctx.strokeStyle="#000"; ctx.stroke();
+  ctx.lineWidth=1.5; ctx.strokeStyle=LAYER_COL[d]; ctx.setLineDash(d===420?[]:[7,5]);
+  ctx.stroke(); ctx.restore();
+}
+function shape(s,sel,draft){
+  const p=s.pts.map(toScreen); if(!p.length) return;
+  const col=s.color||PALETTE[0];
+  ctx.save();
+  ctx.lineWidth=sel?3:2; ctx.strokeStyle=col;
+  ctx.fillStyle=col+(draft?"22":"38");
+  if(s.type==="point"){
+    p.forEach(q=>{ ctx.beginPath(); ctx.arc(q[0],q[1],sel?7:5,0,7); ctx.fill(); ctx.stroke(); });
+  }else{
+    ctx.beginPath();
+    p.forEach((q,i)=> i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]));
+    if(s.type==="poly"||s.type==="rect"){
+      ctx.closePath(); if($("cFill").checked) ctx.fill();
+    }
+    ctx.stroke();
+    if(sel) p.forEach(q=>{ ctx.beginPath(); ctx.arc(q[0],q[1],4,0,7);
+      ctx.fillStyle="#fff"; ctx.fill(); ctx.strokeStyle=col; ctx.stroke(); });
+  }
+  if(!draft && p.length){
+    const t=`${s.id} · ${s.layer}`;
+    ctx.font="bold 12px Consolas"; const w=ctx.measureText(t).width+8;
+    ctx.fillStyle="#000b"; ctx.fillRect(p[0][0],p[0][1]-17,w,15);
+    ctx.fillStyle=col; ctx.fillText(t,p[0][0]+4,p[0][1]-6);
+  }
+  ctx.restore();
+}
+function hud(msg){
+  const c=cur();
+  $("hud").textContent = msg || (c
+    ? `${c.name}\n${S.W}×${S.H}  ·  ${Math.round(S.zoom*100)} %  ·  개체 ${list().length}`
+      + `\n도구 ${ {poly:"폴리곤",rect:"사각형",line:"선",point:"점"}[S.tool] }  ·  층 ${S.layer} mm`
+      + (flip()?"  ·  뒤집어 보는 중":"  ·  원본 방향")
+    : "");
+}
+function renderList(){
+  const arr=list(), el=$("list");
+  $("cnt").textContent = arr.length ? `(${arr.length})` : "";
+  el.innerHTML = arr.map((s,i)=>
+    `<div class="item ${i===S.sel?'sel':''}" data-i="${i}">
+       <span class="sw" style="background:${s.color}"></span>
+       <b>${s.id}</b> <span style="color:var(--dim)">${
+         {poly:"폴리곤",rect:"사각형",line:"선",point:"점"}[s.type]}</span>
+       <small>${s.layer}${s.label?" · "+s.label:""}</small></div>`).join("");
+  [...el.children].forEach(d=>d.onclick=()=>{ S.sel=+d.dataset.i; draw(); });
+}
+
+// ── 편집 ─────────────────────────────────────────────────────────
+function snap(){ const c=cur(); if(c) S.undo.push(JSON.stringify(S.shapes[c.name]||[]));
+  if(S.undo.length>60) S.undo.shift(); }
+function commit(s){
+  if(!s || s.pts.length<(s.type==="point"?1:2)) return;
+  snap(); const arr=list();
+  s.id = "obj"+(arr.length+1);
+  s.color = PALETTE[arr.length % PALETTE.length];
+  s.label = $("tLabel").value.trim();
+  arr.push(s); S.sel=arr.length-1; save(); draw();
+}
+function hitVertex(x,y){
+  const arr=list();
+  for(let i=arr.length-1;i>=0;i--)
+    for(let j=0;j<arr[i].pts.length;j++){
+      const s=toScreen(arr[i].pts[j]);
+      if(Math.hypot(s[0]-x,s[1]-y)<7) return [i,j];
+    }
+  return null;
+}
+
+// ── 입력 ─────────────────────────────────────────────────────────
+cv.addEventListener("mousedown",e=>{
+  if(!S.img) return;
+  const r=cv.getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top;
+  if(e.button===1 || S.space){ S.pan=[x,y,S.ox,S.oy]; return; }
+  if(e.button!==0) return;
+  const hv=hitVertex(x,y);
+  if(hv && e.altKey){
+    snap(); const s=list()[hv[0]];
+    s.pts.splice(hv[1],1);
+    if(s.pts.length < (s.type==="point"?1:2)) list().splice(hv[0],1);
+    save(); draw(); return;
+  }
+  if(hv && !S.draft){ S.sel=hv[0]; S.drag=hv; snap(); draw(); return; }
+  const p=toImage(x,y);
+  if(S.tool==="point"){ commit({type:"point",layer:S.layer,pts:[p]}); return; }
+  if(S.tool==="rect"){ S.draft={type:"rect",layer:S.layer,pts:[p,p,p,p],_a:p}; return; }
+  // poly / line
+  if(!S.draft) S.draft={type:S.tool,layer:S.layer,pts:[p]};
+  else{
+    const f=toScreen(S.draft.pts[0]);
+    if(S.draft.pts.length>2 && Math.hypot(f[0]-x,f[1]-y)<9){
+      commit(S.draft); S.draft=null; return;
+    }
+    S.draft.pts.push(p);
+  }
+  draw();
+});
+cv.addEventListener("mousemove",e=>{
+  const r=cv.getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top;
+  if(S.pan){ S.ox=S.pan[2]+x-S.pan[0]; S.oy=S.pan[3]+y-S.pan[1]; draw(); return; }
+  if(S.drag){ list()[S.drag[0]].pts[S.drag[1]]=toImage(x,y); draw(); return; }
+  if(S.draft && S.draft.type==="rect" && S.draft._a){
+    const a=S.draft._a, b=toImage(x,y);
+    S.draft.pts=[[a[0],a[1]],[b[0],a[1]],[b[0],b[1]],[a[0],b[1]]]; draw(); return;
+  }
+  if(S.draft){ const t=S.draft.pts.slice(); t.push(toImage(x,y));
+    const k={...S.draft,pts:t}; draw(); shape(k,true,true); }
+});
+window.addEventListener("mouseup",()=>{
+  if(S.draft && S.draft.type==="rect"){ const d=S.draft; S.draft=null; delete d._a;
+    const w=Math.abs(d.pts[0][0]-d.pts[2][0]), h=Math.abs(d.pts[0][1]-d.pts[2][1]);
+    if(w>3&&h>3) commit(d); else draw(); }
+  if(S.drag){ save(); S.drag=null; }
+  S.pan=null;
+});
+cv.addEventListener("wheel",e=>{
+  e.preventDefault(); if(!S.img) return;
+  const r=cv.getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top;
+  const k=e.deltaY<0?1.15:1/1.15, z=Math.max(0.05,Math.min(20,S.zoom*k));
+  S.ox = x-(x-S.ox)*(z/S.zoom); S.oy = y-(y-S.oy)*(z/S.zoom); S.zoom=z; draw();
+},{passive:false});
+
+window.addEventListener("keydown",e=>{
+  if(e.target.tagName==="INPUT") return;
+  if(e.code==="Space"){ S.space=true; e.preventDefault(); }
+  if(e.key==="Enter" && S.draft){ commit(S.draft); S.draft=null; }
+  if(e.key==="Escape"){ S.draft=null; S.sel=-1; draw(); }
+  if(e.key==="Delete"||e.key==="Backspace"){
+    if(S.sel>=0){ snap(); list().splice(S.sel,1); S.sel=-1; save(); draw(); } }
+  if(e.ctrlKey && e.key.toLowerCase()==="z") undo();
+  if("1234".includes(e.key)) setTool(["poly","rect","line","point"][+e.key-1]);
+  if(e.key.toLowerCase()==="f") fit();
+  if(e.key==="0"){ S.zoom=1; fit0(); }
+  if(e.key==="[") prev(); if(e.key==="]") next();
+});
+window.addEventListener("keyup",e=>{ if(e.code==="Space") S.space=false; });
+function fit0(){ const r=$("stage").getBoundingClientRect();
+  S.ox=(r.width-S.W)/2; S.oy=(r.height-S.H)/2; S.zoom=1; draw(); }
+function undo(){ const c=cur(); if(!c||!S.undo.length) return;
+  S.shapes[c.name]=JSON.parse(S.undo.pop()); S.sel=-1; save(); draw(); }
+
+function setTool(t){ S.tool=t; S.draft=null;
+  document.querySelectorAll(".tool").forEach(b=>b.classList.toggle("on",b.dataset.t===t));
+  draw(); }
+document.querySelectorAll(".tool").forEach(b=>b.onclick=()=>setTool(b.dataset.t));
+document.querySelectorAll(".lay-b").forEach(b=>b.onclick=()=>{
+  S.layer=+b.dataset.d;
+  document.querySelectorAll(".lay-b").forEach(x=>x.classList.toggle("on",x===b));
+  if(S.sel>=0){ snap(); list()[S.sel].layer=S.layer; save(); }
+  draw(); });
+["cFlip","cFov","cDim","cFill"].forEach(id=>$(id).onchange=draw);
+$("bFit").onclick=fit; $("b100").onclick=fit0;
+$("bUndo").onclick=undo;
+$("bDel").onclick=()=>{ if(S.sel>=0){ snap(); list().splice(S.sel,1); S.sel=-1; save(); draw(); } };
+$("bClr").onclick=()=>{ if(confirm("이 장의 개체를 모두 지웁니다.")){ snap();
+  const c=cur(); if(c) S.shapes[c.name]=[]; S.sel=-1; save(); draw(); } };
+
+// ── 파일 ─────────────────────────────────────────────────────────
+$("bOpen").onclick=()=>$("fIn").click();
+$("fIn").onchange=e=>{
+  const fs=[...e.target.files].sort((a,b)=>a.name.localeCompare(b.name));
+  S.imgs = fs.map(f=>({name:f.name,file:f}));
+  S.idx=-1; next();
+};
+function load(i){
+  if(i<0||i>=S.imgs.length) return;
+  S.idx=i; S.sel=-1; S.draft=null; S.undo=[];
+  const it=S.imgs[i], im=new Image();
+  im.onload=()=>{ S.img=im; S.W=im.naturalWidth; S.H=im.naturalHeight;
+    S.shapes[it.name] ||= []; fit();
+    $("files").textContent=`${i+1} / ${S.imgs.length} — ${it.name}`; };
+  im.src=URL.createObjectURL(it.file);
+}
+function next(){ load(Math.min(S.idx+1,S.imgs.length-1)); }
+function prev(){ load(Math.max(S.idx-1,0)); }
+$("bNext").onclick=next; $("bPrev").onclick=prev;
+
+// ── 저장 ─────────────────────────────────────────────────────────
+const KEY="tmsdk_annot_v1";
+function save(){ try{ localStorage.setItem(KEY,JSON.stringify(S.shapes)); }catch(_){} }
+try{ const v=localStorage.getItem(KEY); if(v) S.shapes=JSON.parse(v); }catch(_){}
+
+function payload(){
+  return {
+    tool:"TmSDK annotator v1",
+    saved_at:new Date().toISOString(),
+    coordinate_note:"좌표는 원본 RGB 파일 좌표(1920×1080, 뒤집지 않은 상태)입니다. "+
+      "화면에는 180° 뒤집어 보여 주지만 저장값은 파일 좌표 그대로입니다. "+
+      "투영: undistortPoints(pts,K_rgb,dist_rgb,P=K_rgb) → perspectiveTransform(H[layer]) "+
+      "→ 열화상은 180° 회전한 좌표계.",
+    layers_mm:[420,700,1000],
+    images:Object.entries(S.shapes)
+      .filter(([,v])=>v.length)
+      .map(([name,objs])=>({image:name,objects:objs.map(o=>({
+        id:o.id,type:o.type,layer_mm:o.layer,label:o.label||null,
+        points:o.pts.map(p=>[Math.round(p[0]*10)/10,Math.round(p[1]*10)/10])}))}))
+  };
+}
+function dl(blob,name){
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+}
+$("bJson").onclick=()=>{
+  const p=payload();
+  if(!p.images.length){ alert("저장할 개체가 없습니다."); return; }
+  dl(new Blob([JSON.stringify(p,null,1)],{type:"application/json"}),
+     "annotations_"+new Date().toISOString().slice(0,10)+".json");
+};
+$("bMask").onclick=()=>{
+  const c=cur(); if(!c||!S.img) return;
+  const arr=list().filter(s=>s.type==="poly"||s.type==="rect");
+  if(!arr.length){ alert("폴리곤·사각형이 없습니다. 마스크는 면이 있어야 만듭니다."); return; }
+  const o=document.createElement("canvas"); o.width=S.W; o.height=S.H;
+  const g=o.getContext("2d"); g.fillStyle="#000"; g.fillRect(0,0,S.W,S.H);
+  arr.forEach((s,i)=>{ g.fillStyle=s.color; g.beginPath();
+    s.pts.forEach((p,j)=> j?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]));
+    g.closePath(); g.fill(); });
+  o.toBlob(b=>dl(b, c.name.replace(/\.[^.]+$/,"") + "_mask.png"));
+};
+$("bLoad").onclick=()=>$("jIn").click();
+$("jIn").onchange=e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{ try{
+    const j=JSON.parse(r.result);
+    if(j.fov_polygon){ for(const k in j.fov_polygon) FOV[+k]=j.fov_polygon[k]; draw(); }
+    if(j.images) j.images.forEach(im=>{
+      S.shapes[im.image]=im.objects.map((o,i)=>({
+        type:o.type,layer:o.layer_mm,label:o.label,pts:o.points,
+        id:o.id||("obj"+(i+1)),color:PALETTE[i%PALETTE.length]}));
+    });
+    save(); draw(); alert("불러왔습니다.");
+  }catch(err){ alert("읽지 못했습니다: "+err.message); } };
+  r.readAsText(f);
+};
+
+window.addEventListener("resize",resize);
+resize();
+</script>
