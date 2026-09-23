@@ -137,7 +137,12 @@ def diverging_lut():
 def th_render(cels, mode="raw"):
     if mode == "dev":
         x = cels - cels.mean()
-        lim = max(np.percentile(np.abs(x), 98), 0.3)
+        # ★ 배율을 |편차| 의 98 분위로 잡으면, 조명 같은 «뜨거운» 물체가
+        #   화면에 들어온 프레임에서 배율이 통째로 끌려가 잎이 창백해집니다.
+        #   (.152 09-21 10:00 은 온도폭이 18.3 ℃ 였습니다.)
+        #   우리가 그리려는 것은 «찬» 쪽이므로 찬 쪽으로 배율을 잡고,
+        #   뜨거운 쪽은 빨강으로 포화시켜 버립니다.
+        lim = max(abs(np.percentile(x, 2)), 0.3)
         u = np.clip((x+lim)/(2*lim)*255, 0, 255).astype(np.uint8)
         im = cv2.LUT(cv2.cvtColor(u, cv2.COLOR_GRAY2BGR), diverging_lut())
     else:

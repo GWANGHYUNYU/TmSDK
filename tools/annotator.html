@@ -215,8 +215,12 @@ function draw(){
   ctx.drawImage(S.img,0,0);
   ctx.restore();
 
-  if($("cDim").checked && FOV[420]) dimOutside();
-  if($("cFov").checked) for(const d of [420,700,1000]) fovLine(d);
+  // ★ 화각 경계는 «RGB 1920×1080 원본 좌표» 로만 정의돼 있다. 열화상
+  //   프레임(960×720 등)에 그대로 그리면 화면 밖 엉뚱한 자리에 선이 생겨
+  //   «정합이 틀렸나» 하고 오해하게 된다. 크기가 다르면 아예 그리지 않는다.
+  const isRgb = (S.W === 1920 && S.H === 1080);
+  if(isRgb && $("cDim").checked && FOV[420]) dimOutside();
+  if(isRgb && $("cFov").checked) for(const d of [420,700,1000]) fovLine(d);
 
   const arr=list();
   arr.forEach((s,i)=>shape(s,i===S.sel));
