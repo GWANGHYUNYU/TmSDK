@@ -132,6 +132,9 @@ def read_slots(raw, cam, day):
             continue
         out.append((f"{t[:2]}:{t[2:4]}", int(t[:2])+int(t[2:4])/60,
                     cels, ok, tot))
+    # ★ 경로 순서 ≠ 시각 순서. 녹화가 여러 하위 폴더에 나뉘면 폴더가 먼저
+    #   갈라져 «18:01 다음 00:00» 같은 순서가 됩니다.
+    out.sort(key=lambda s: s[1])
     return out
 
 

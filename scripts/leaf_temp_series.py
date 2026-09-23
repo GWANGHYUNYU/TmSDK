@@ -141,7 +141,8 @@ def main():
     ap.add_argument("--params", default="params/thermal_rgb_stereo.npz")
     ap.add_argument("--cam", default="192_168_0_151")
     ap.add_argument("--day", default="20260918")
-    ap.add_argument("--raw", default="calib/raw/th/raw_output")
+    ap.add_argument("--raw", default="calib/raw/th",
+                    help="아래 하위 폴더까지 재귀로 훑습니다")
     ap.add_argument("--out", default="output/leaftemp")
     args = ap.parse_args()
     os.makedirs(args.out, exist_ok=True)
@@ -159,7 +160,8 @@ def main():
 
     slots = []
     for p in sorted(glob.glob(os.path.join(
-            HERE, args.raw, f"{args.cam}_{args.day}_*.y16raw"))):
+            HERE, args.raw, "**",
+            f"{args.cam}_{args.day}_*.y16raw"), recursive=True)):
         if os.path.getsize(p) < 1e6:
             continue
         t = re.search(r"_(\d{6})\.y16raw", p).group(1)
@@ -170,6 +172,10 @@ def main():
         slots.append((f"{t[:2]}:{t[2:4]}", int(t[:2])+int(t[2:4])/60, cels, n))
     if not slots:
         raise SystemExit("쓸 수 있는 슬롯이 없습니다.")
+    # ★ 파일 경로 순서가 곧 시각 순서라고 믿으면 안 됩니다. 녹화가 여러
+    #   하위 폴더에 나뉘어 있으면 경로 정렬이 폴더를 먼저 갈라놓아,
+    #   «18:01 ~ 16:00» 같은 목록이 나오고 선 그래프가 갈지자로 그려집니다.
+    slots.sort(key=lambda s: s[1])
     print(f"  슬롯 {len(slots)}개  {slots[0][0]} ~ {slots[-1][0]}")
 
     polys = [o["poly"] for o in objs]

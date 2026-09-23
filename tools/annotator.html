@@ -23,6 +23,10 @@ button.on{background:var(--acc);border-color:var(--acc);color:#04121f;font-weigh
 .row{display:flex;gap:5px;flex-wrap:wrap}
 .row>*{flex:1;min-width:0}
 label.ck{display:flex;align-items:center;gap:7px;padding:3px 0;cursor:pointer}
+.mode{margin-top:6px;padding:4px 8px;border-radius:4px;font-size:11px;
+      background:#2a2f37;color:#8b949e;border-left:3px solid #484f58}
+.mode.rgb{background:#12261a;color:#7ee787;border-left-color:#3fb950}
+.mode.thermal{background:#241a2b;color:#d2a8ff;border-left-color:#a371f7}
 #stage{flex:1;position:relative;overflow:hidden;background:#0d1117}
 canvas{position:absolute;top:0;left:0;image-rendering:auto}
 #hud{position:absolute;left:10px;bottom:10px;background:#0009;padding:5px 9px;
@@ -60,6 +64,7 @@ hr{border:0;border-top:1px solid var(--line);margin:10px 12px}
       <button id="bPrev">◀ 이전</button><button id="bNext">다음 ▶</button>
     </div>
     <div id="files" class="note" style="padding:6px 0 0">아직 없음</div>
+    <div id="mode" class="mode">영상을 불러오면 종류가 표시됩니다</div>
   </div>
 
   <h2>2 · 도구</h2>
@@ -177,6 +182,7 @@ const colorOf = (cls,i) => CLS_COL[cls] || PALETTE[i % PALETTE.length];
 
 const S = {
   imgs:[], idx:-1, img:null, W:0, H:0,
+  mode:"rgb", scale:1,        // setMode() 가 영상마다 다시 정한다
   shapes:{},            // 파일이름 → 배열
   tool:"poly", layer:420, cls:"잎", draft:null, sel:-1,
   zoom:1, ox:0, oy:0, pan:null, drag:null, undo:[]
@@ -218,9 +224,8 @@ function draw(){
   // ★ 화각 경계는 «RGB 1920×1080 원본 좌표» 로만 정의돼 있다. 열화상
   //   프레임(960×720 등)에 그대로 그리면 화면 밖 엉뚱한 자리에 선이 생겨
   //   «정합이 틀렸나» 하고 오해하게 된다. 크기가 다르면 아예 그리지 않는다.
-  const isRgb = (S.W === 1920 && S.H === 1080);
-  if(isRgb && $("cDim").checked && FOV[420]) dimOutside();
-  if(isRgb && $("cFov").checked) for(const d of [420,700,1000]) fovLine(d);
+  if(S.mode==="rgb" && $("cDim").checked && FOV[420]) dimOutside();
+  if(S.mode==="rgb" && $("cFov").checked) for(const d of [420,700,1000]) fovLine(d);
 
   const arr=list();
   arr.forEach((s,i)=>shape(s,i===S.sel));
@@ -273,7 +278,9 @@ function shape(s,sel,draft){
 function hud(msg){
   const c=cur();
   $("hud").textContent = msg || (c
-    ? `${c.name}\n${S.W}×${S.H}  ·  ${Math.round(S.zoom*100)} %  ·  개체 ${list().length}`
+    ? `${c.name}\n${S.W}×${S.H}`
+      + (S.mode==="thermal" ? `  (열화상 ${Math.round(S.W/S.scale)}×${Math.round(S.H/S.scale)} ×${S.scale})` : "")
+      + `  ·  ${Math.round(S.zoom*100)} %  ·  개체 ${list().length}`
       + `\n도구 ${ {poly:"폴리곤",rect:"사각형",line:"선",point:"점"}[S.tool] }  ·  층 ${S.layer} mm`
       + (flip()?"  ·  뒤집어 보는 중":"  ·  원본 방향")
     : "");
@@ -424,9 +431,32 @@ function load(i){
   S.idx=i; S.sel=-1; S.draft=null; S.undo=[];
   const it=S.imgs[i], im=new Image();
   im.onload=()=>{ S.img=im; S.W=im.naturalWidth; S.H=im.naturalHeight;
+    setMode();
     S.shapes[it.name] ||= []; fit();
     $("files").textContent=`${i+1} / ${S.imgs.length} — ${it.name}`; };
   im.src=URL.createObjectURL(it.file);
+}
+// ── 영상 종류를 «명시적으로» 가른다 ───────────────────────────────
+// ★ 화각 경계(FOV)는 RGB 1920×1080 원본 좌표로만 정의돼 있다. 열화상
+//   (960×720 = 160×120 ×6)에 그대로 그리면 좌표가 완전히 어긋나, 화면
+//   한구석에 엉뚱한 사각형이 생기고 «화각 밖 어둡게» 가 나머지를 통째로
+//   덮어 버린다. 실제로 그 화면을 보고 «레졸루션이 안 맞는다» 는 신고가
+//   들어왔다. 크기로 조용히 판단하지 말고, 모드를 정해 화면에 띄운다.
+function setMode(){
+  const rgb = (S.W===1920 && S.H===1080);
+  S.mode  = rgb ? "rgb" : "thermal";
+  S.scale = rgb ? 1 : Math.round(S.W/160) || 1;   // 열화상 확대 배율
+  for(const id of ["cFov","cDim"]){
+    const el=$(id); el.disabled=!rgb;
+    el.parentElement.style.opacity = rgb ? 1 : .35;
+    el.parentElement.title = rgb ? "" : "열화상에는 적용되지 않습니다";
+  }
+  $("cFlip").parentElement.title =
+    rgb ? "RGB 는 물리적으로 뒤집혀 있습니다" : "보기에만 영향을 줍니다";
+  $("mode").textContent = rgb
+    ? "RGB 1920×1080 — 화각 경계 사용"
+    : `열화상 ${Math.round(S.W/S.scale)}×${Math.round(S.H/S.scale)} ×${S.scale} — 화각 경계 없음`;
+  $("mode").className = "mode " + S.mode;
 }
 function next(){ load(Math.min(S.idx+1,S.imgs.length-1)); }
 function prev(){ load(Math.max(S.idx-1,0)); }
