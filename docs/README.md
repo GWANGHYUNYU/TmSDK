@@ -15,6 +15,8 @@
 | 5 | [thermal_rgb_calibration.md](thermal_rgb_calibration.md) | 열화상↔RGB 정합 캘리브레이션 실무 가이드 | 15분 |
 | 6 | [distance_registry.md](distance_registry.md) | **거리 대장** — 실측·역산 전부. 거리 수치는 여기가 기준 | 10분 |
 | ★ | [**calibration_final.md**](calibration_final.md) | **정합 캘리브레이션 최종 보고** — 확정값·근거·함정·다음 단계 | 12분 |
+| ★ | [**report/mid-term/**](../report/mid-term/README.md) | **중간보고** — 엽온·VPD·팬 효과 측정 결과. 대외 설명은 여기서 | 15분 |
+| — | [calibration_verification_log.md](calibration_verification_log.md) | 검증 수치 기록 — 결론을 재검증·반박하려는 사람용 | 8분 |
 | — | [**params/**](../params/README.md) | **확정된 카메라 파라미터.** 코드는 여기서 읽습니다 | 3분 |
 | — | [**calib/**](../calib/README.md) | 캘리브레이션 원본 3세션 169건의 목록과 정리 규칙 | 3분 |
 | — | [confluence/](confluence/) | 현장용 발췌 — **4차 촬영표**(현행)와 도해 4종 | — |
@@ -166,13 +168,14 @@
 | 위치 | 내용 |
 |---|---|
 | `submit/산업재산권_심의자료_개체별VPD.md` / `.docx` | **산업재산권 심의자료** (22쪽, 표 12·그림 6). 결과 1∼6, 청구 구성(안) 주청구항 + 종속항 10개 |
-| `output/deliverable/marker_timeseries.csv` | **390행 × 28열** — 마커 온도 + 환경센서 + VPD 전부. 모든 수치의 원자료 |
-| `output/deliverable/zone_151_no_fan/` | 무송풍 구역 열화상 (원본/화분만/잎만/병기 × 6시각). **마커 확정** |
-| `output/deliverable/zone_152_with_fan/` | 송풍 구역 같은 구성 + 진단. ⚠ **마커 미확정, POT C 는 일사센서** |
-| `output/deliverable/mode_pipeline.svg` | 동작모드 전환 파이프라인 + M1∼M7 매트릭스 |
-| `output/deliverable/error_budget.svg` | 오차예산 개념도 및 항목별 기여 |
+| [`report/mid-term/README.md`](../report/mid-term/README.md) | ★ **중간보고** — 마커별 온도·VPD·팬 효과·환경 정보. 본문에 모든 수치 |
+| `report/mid-term/data/marker_timeseries.csv` | **390행 × 28열** — 마커 온도 + 환경센서 + VPD 전부. 모든 수치의 원자료 |
+| `report/mid-term/frames/zone_151_no_fan/` | 무송풍 구역 열화상 (원본/화분만/잎만/병기 × 6시각). **마커 확정** |
+| `report/mid-term/frames/zone_152_with_fan/` | 송풍 구역 같은 구성 + 진단. ⚠ **마커 미확정, POT C 는 일사센서** |
+| `report/mid-term/figures/01_동작모드_파이프라인.svg` | 동작모드 전환 파이프라인 + M1∼M7 매트릭스 |
+| `report/mid-term/figures/02_오차예산.svg` | 오차예산 개념도 및 항목별 기여 |
 | `ubuntu_python_stream/` | 녹화 프로그램(`multi_cameras_multi_roi_y16.py`)과 판독 도구(`read_y16.py`) |
-| `output/calib_review/` | 1차 캘리브레이션 촬영 검토 — 요약 대시보드·전체·낱장 |
+| [`docs/calibration_verification_log.md`](calibration_verification_log.md) | 캘리브레이션 검증 수치 — 산출물을 지우기 전에 남긴 기록 |
 | `params/` | **확정 카메라 파라미터** — RGB 내부, 스테레오 R·T, 층별 H(d) |
 | `docs/confluence/` | 현장용 촬영표(4차 = 최종)와 도해 4종 (Confluence 게시용) |
 

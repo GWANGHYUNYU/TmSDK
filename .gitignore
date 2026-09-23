@@ -36,6 +36,15 @@ calib/*
 # 검출 확인용 덤프 이미지
 chk/
 
+# 문서에 붙는 근거 이미지 — 작물·현장 사진이라 업로드하지 않는다.
+# 문서 본문(docs/*.md)은 그림 없이도 읽히도록 수치를 본문에 적어 둔다.
+docs/figures/
+
+# 중간보고 — 본문은 추적하고, 그림·원자료·프레임은 업로드하지 않는다.
+report/mid-term/figures/
+report/mid-term/data/
+report/mid-term/frames/
+
 # 스크립트가 생성하는 산출물
 coverage.png
 thermal_calib.json

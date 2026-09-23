@@ -299,7 +299,7 @@ RGB 개체 어노테이션 → 층별 H(d) 로 열화상 좌표에 투영
 | 4 | 열화상 단독 인스턴스 분할 학습 | [기획서 4-1](leaf_segmentation_plan.md) 경로 C |
 
 > ✅ **어노테이션 패키지를 확정 파라미터로 다시 만들었습니다**
-> (`output/annotate_v2/`, 2026-09-22). 옛 `output/annotate_rgb/` 는 폐기된
+> (`output/annotate_v2/`, 2026-09-22). 옛 `output/annotate_rgb/` 는 폐기되어 삭제했습니다 —
 > 값(깊이 450 mm 단일 층, roll 6.6°, f_rgb 1299.5)이므로 쓰지 마십시오.
 
 ### ⚠ 학습 자료 구축의 실제 장애 — 동시 녹화가 안 되고 있습니다
