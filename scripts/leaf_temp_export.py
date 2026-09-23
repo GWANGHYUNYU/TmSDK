@@ -32,6 +32,7 @@ import importlib.util
 import os
 import re
 import sys
+import time
 
 import cv2
 import numpy as np
@@ -49,6 +50,7 @@ _spec.loader.exec_module(LTS)
 DAY_H = (9, 17)
 MIN_CORR = 0.20      # 최대상관이 이보다 낮으면 정합 근거 없음
 MIN_AGREE = 0.60     # 최적 이동이 같은 값으로 모이는 슬롯 비율
+MAX_FIX_PX = 2       # 이 이하로 «일관되게» 밀린 것은 되밀어 쓴다
 
 
 def struct(x):
@@ -65,11 +67,62 @@ def best_shift(a, b, rad=10):
                 for dy in range(-rad, rad+1) for dx in range(-rad, rad+1)))
 
 
+def th_files(raw, pat):
+    """raw 아래를 **재귀로** 훑습니다.
+
+    ★ 한 폴더만 보면 안 됩니다. 현장에서 날짜·카메라별로 하위 폴더를
+      만들어 넣는 일이 있는데(calib/raw/th/151/), 그러면 조용히 그만큼을
+      빼고 계산합니다 — 09-19·09-20 의 91슬롯이 그렇게 빠질 뻔했습니다.
+    """
+    return sorted(glob.glob(os.path.join(HERE, raw, "**", pat),
+                            recursive=True))
+
+
+def shift_obj(o, dx, dy):
+    """개체 마스크·폴리곤을 (dx, dy) 만큼 옮긴 사본.
+
+    ★ 방향 주의. best_shift(ref, b) 는 «b 를 (dx,dy) 만큼 굴리면 ref 와
+      가장 닮는다» 를 줍니다. 마스크는 ref 좌표계에 있으므로, b(그 날)
+      좌표계로 보내려면 **반대로** 굴려야 합니다. 부호를 뒤집으면 오차가
+      두 배가 되므로, 적용 뒤 적합도로 확인합니다.
+    """
+    m = np.roll(np.roll(o["mask"], -dy, axis=0), -dx, axis=1)
+    p = o["poly"].copy()
+    p[:, 0] -= dx
+    p[:, 1] -= dy
+    return {**o, "mask": m, "poly": p}
+
+
+def write_csv(path, rows, fields=None):
+    """CSV 를 씁니다. 파일이 잠겨 있으면 옆에 이름을 바꿔 씁니다.
+
+    ★ 엑셀로 열어 둔 CSV 는 Windows 에서 «쓰기 금지» 입니다. 그냥 두면
+      수십 분 돌린 계산이 마지막 줄에서 PermissionError 로 통째로 날아갑니다.
+      결과를 잃는 것보다 파일 이름이 하나 늘어나는 편이 낫습니다.
+    """
+    f = fields or list(rows[0].keys())
+    for p in (path, None):
+        target = p or (os.path.splitext(path)[0] +
+                       f"_{int(time.time())}.csv")
+        try:
+            with open(target, "w", newline="", encoding="utf-8-sig") as fh:
+                w = csv.DictWriter(fh, fieldnames=f, extrasaction="ignore")
+                w.writeheader()
+                w.writerows(rows)
+            if p is None:
+                print(f"  ⚠ {os.path.basename(path)} 가 잠겨 있어 "
+                      f"{os.path.basename(target)} 로 저장했습니다 "
+                      "(엑셀에서 닫고 다시 돌리면 제자리에 씁니다)")
+            return target
+        except PermissionError:
+            continue
+    raise IOError(path)
+
+
 def read_slots(raw, cam, day):
     """(시각표기, 시(소수), 평균온도맵, 프레임수) 목록. 빈 파일은 건너뜁니다."""
     out = []
-    for p in sorted(glob.glob(os.path.join(HERE, raw,
-                                           f"{cam}_{day}_*.y16raw"))):
+    for p in th_files(raw, f"{cam}_{day}_*.y16raw"):
         if os.path.getsize(p) < 1e6:
             continue
         t = re.search(r"_(\d{6})\.y16raw", p).group(1)
@@ -94,8 +147,16 @@ def judge(slots, ref):
     corr = float(np.median(a[:, 0]))
     if corr < MIN_CORR or agree < MIN_AGREE:
         v = "불가"
+    elif max(abs(dx), abs(dy)) > MAX_FIX_PX:
+        # 많이 밀린 장면. 통째로 밀어도 잎은 제각각 움직였을 것이다.
+        v = "불가"
     elif (dx, dy) != (0, 0):
-        v = "불가"          # 밀린 장면. 통째로 밀어도 잎은 제각각 움직였다.
+        # ★ «일관되게» 1~2 화소 밀린 것은 버릴 이유가 없다. 슬롯마다
+        #   최적 이동이 제각각이면(일관성 낮음) 위에서 이미 걸러졌고,
+        #   여기 남은 것은 카메라가 살짝 건드려진 경우다. 그 값만큼
+        #   마스크를 되밀면 된다. 09-19 는 (+1,0) 하나로 48슬롯이
+        #   통째로 버려질 뻔했다. 보정 여부는 CSV 에 남긴다.
+        v = "보정"
     elif corr < 0.40:
         v = "주의"
     else:
@@ -115,7 +176,8 @@ def main():
     ap.add_argument("--ref-day", default="20260918")
     ap.add_argument("--ref-slot", default="080000",
                     help="어노테이션을 칠한 슬롯 (정합 기준)")
-    ap.add_argument("--raw", default="calib/raw/th/raw_output")
+    ap.add_argument("--raw", default="calib/raw/th",
+                    help="아래 하위 폴더까지 재귀로 훑습니다")
     ap.add_argument("--out", default="output/leaftemp")
     ap.add_argument("--include-invalid", action="store_true",
                     help="마스크 판정 «불가» 인 날도 CSV 에 넣는다 (기본 제외)")
@@ -133,11 +195,14 @@ def main():
           f"꽃 {sum(1 for o in objs if o['cls']=='꽃')} · "
           f"딸기 {sum(1 for o in objs if o['cls']=='딸기')})")
 
-    refp = os.path.join(HERE, args.raw,
-                        f"{args.cam}_{args.ref_day}_{args.ref_slot}.y16raw")
-    ref = struct(LTS.slot_mean(refp)[0])
+    cand = th_files(args.raw,
+                    f"{args.cam}_{args.ref_day}_{args.ref_slot}.y16raw")
+    if not cand:
+        raise SystemExit(f"기준 슬롯을 못 찾았습니다: {args.ref_day} "
+                         f"{args.ref_slot}")
+    ref = struct(LTS.slot_mean(cand[0])[0])
 
-    allf = glob.glob(os.path.join(HERE, args.raw, "*.y16raw"))
+    allf = th_files(args.raw, "*.y16raw")
     cams = ([c.strip() for c in args.cams.split(",") if c.strip()] or
             sorted({re.match(r"(.+)_\d{8}_\d{6}\.y16raw",
                              os.path.basename(p)).group(1) for p in allf}))
@@ -146,8 +211,7 @@ def main():
     rows, summary = [], []
     for cam in cams:
         days = sorted({re.search(r"_(\d{8})_", os.path.basename(p)).group(1)
-                       for p in glob.glob(os.path.join(
-                           HERE, args.raw, f"{cam}_*.y16raw"))})
+                       for p in th_files(args.raw, f"{cam}_*.y16raw")})
         print(f"\n── 카메라 {cam[-3:]} · 날짜 {len(days)}개 "
               f"({days[0]} ~ {days[-1]}) " + "─"*30)
 
@@ -157,8 +221,7 @@ def main():
         if cam != args.cam:
             probe = None
             for day in days:
-                for p in sorted(glob.glob(os.path.join(
-                        HERE, args.raw, f"{cam}_{day}_1*.y16raw"))):
+                for p in th_files(args.raw, f"{cam}_{day}_1*.y16raw"):
                     if os.path.getsize(p) < 1e6:
                         continue
                     try:
@@ -178,8 +241,7 @@ def main():
                 print(f"  ★ 다른 장면입니다. 이 카메라 전체를 뺍니다 "
                       f"({len(days)}일). 이 마스크로는 잴 수 없습니다.")
                 for day in days:
-                    n = len(glob.glob(os.path.join(
-                        HERE, args.raw, f"{cam}_{day}_*.y16raw")))
+                    n = len(th_files(args.raw, f"{cam}_{day}_*.y16raw"))
                     summary.append(dict(카메라=cam[-3:], 날짜=day, 슬롯수=n,
                                         주간슬롯="", 상관=round(c0, 3),
                                         dx=dx0, dy=dy0, 일관성="",
@@ -208,9 +270,20 @@ def main():
         #   체커보드를 들고 찍은 캘리브레이션 촬영일이라 장면이 아예 다르다.
             if v in ("불가", "판정불가") and not args.include_invalid:
                 continue
+            use = objs if (dx, dy) == (0, 0) else [
+                shift_obj(o, dx, dy) for o in objs]
+            upoly = [o["poly"] for o in use]
+            if (dx, dy) != (0, 0):
+                # 되민 방향이 맞는지 확인합니다 — 틀리면 적합도가 떨어집니다.
+                c = slots[len(slots)//2][2]
+                f0 = LTS.edge_fit(c, polys)[0]
+                f1 = LTS.edge_fit(c, upoly)[0]
+                print(f"      보정 ({dx:+d},{dy:+d}) 적용 — 적합도 "
+                      f"{f0:.3f} → {f1:.3f}"
+                      + ("" if f1 >= f0 else "  ⚠ 나빠졌습니다"))
             for lab, hh, cels, ok, tot in slots:
-                fit, gmag = LTS.edge_fit(cels, polys)
-                for o in objs:
+                fit, gmag = LTS.edge_fit(cels, upoly)
+                for o in use:
                     rows.append({
                         "날짜": day, "시각": lab, "시": round(hh, 3),
                         "카메라": cam[-3:], "개체": o["key"],
@@ -220,6 +293,7 @@ def main():
                         "화면평균_C": round(float(cels.mean()), 3),
                         "유효프레임": ok, "전체프레임": tot,
                         "슬롯온전": int(ok >= 0.95*tot), "마스크판정": v,
+                        "보정dx": dx, "보정dy": dy,
                         "마스크적합": round(fit, 3),
                         "열구조세기": round(gmag, 3),
                         "점등": int(8 <= hh < 18),
@@ -262,10 +336,7 @@ def main():
         print(f"    {s['카메라']} {s['날짜']}  r = {c:+.3f}   {mark}")
 
     p1 = os.path.join(args.out, "leaf_temp_all.csv")
-    with open(p1, "w", newline="", encoding="utf-8-sig") as fh:
-        w = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
-        w.writeheader()
-        w.writerows(rows)
+    write_csv(p1, rows)
     # 개체별 요약 — 긴 표(3577행)를 그대로 보기는 어렵습니다.
     p3 = os.path.join(args.out, "leaf_temp_objects.csv")
     agg = {}
@@ -307,16 +378,10 @@ def main():
     cols = ["날짜", "개체", "분류", "층_mm", "면적_px", "점등슬롯", "소등슬롯",
             "점등_평균_C", "소등_평균_C", "주야차_C",
             "점등_편차_C", "소등_편차_C"]
-    with open(p3, "w", newline="", encoding="utf-8-sig") as fh:
-        w = csv.DictWriter(fh, fieldnames=cols, extrasaction="ignore")
-        w.writeheader()
-        w.writerows(sorted(orows, key=lambda a: (a["날짜"], a["개체"])))
+    write_csv(p3, sorted(orows, key=lambda a: (a["날짜"], a["개체"])), cols)
 
     p2 = os.path.join(args.out, "leaf_temp_days.csv")
-    with open(p2, "w", newline="", encoding="utf-8-sig") as fh:
-        w = csv.DictWriter(fh, fieldnames=list(summary[0].keys()))
-        w.writeheader()
-        w.writerows(summary)
+    write_csv(p2, summary)
 
     days_in = sorted({r["날짜"] for r in rows})
     print(f"\n  저장  {p1}  ({len(rows)}행 · 날짜 {len(days_in)}개"

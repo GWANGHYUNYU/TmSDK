@@ -170,7 +170,7 @@ def main():
     ap.add_argument("annot")
     ap.add_argument("--package", default="output/annotate_v2")
     ap.add_argument("--params", default="params/thermal_rgb_stereo.npz")
-    ap.add_argument("--days-151", default="20260917,20260918")
+    ap.add_argument("--days-151", default="20260917,20260918,20260919,20260920")
     ap.add_argument("--days-152", default="20260919,20260921,20260923")
     ap.add_argument("--out", default="output/maskfigs")
     args = ap.parse_args()

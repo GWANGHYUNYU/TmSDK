@@ -159,9 +159,10 @@ def find_slot(cam, day, hours):
       `.y16meta` 가 0 바이트인 녹화가 있어서, 크기 검사를 통과하고도
       읽기에서 터집니다. 그래서 «읽어 보고» 되는 것을 고릅니다.
     """
+    # ★ 재귀로 훑습니다 — 하위 폴더에 나눠 넣은 녹화를 놓치지 않기 위해.
     for p in sorted(glob.glob(os.path.join(
-            HERE, "calib/raw/th/raw_output",
-            f"192_168_0_{cam}_{day}_*.y16raw"))):
+            HERE, "calib/raw/th", "**",
+            f"192_168_0_{cam}_{day}_*.y16raw"), recursive=True)):
         if os.path.getsize(p) < 1e6:
             continue
         # 자리수로 자르지 말 것 — 확장자가 .y16raw(7자)라 끝에서 센 인덱스가
