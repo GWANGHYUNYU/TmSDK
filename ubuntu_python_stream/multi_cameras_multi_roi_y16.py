@@ -140,6 +140,19 @@ _SPLIT_MAX_SECS      = 3600                    # 1시간 초과 시 파일 분�
 _FLUSH_EVERY         = 30                      # N 프레임마다 flush (~3.4초 @ 8.7 fps)
 _SPLIT_CHECK_EVERY   = 100                     # N 프레임마다 분할 조건 검사
 
+# ★ query_frame() 이 «예외 없이 None 만» 돌려주는 정지 상태가 있다. 예외가
+#   아니라서 _RECONNECT_THRESHOLD 에 걸리지 않고, 워커는 영원히 돌면서
+#   재연결도 안 한다. 그동안 녹화는 켜진 채라 0바이트 .y16raw 만 쌓인다.
+#   (2026-09-17·18 의 .151 빈 파일 23개가 이것이다.)
+_STALL_TIMEOUT_SECS  = 20                      # N초간 프레임 0개 → 재연결 요청
+
+# ★ 재연결이 «한 번» 실패하면 그대로 끝나던 것을 주기 재시도로 바꾼다.
+#   패널의 camera 가 None 이면 예약 녹화 루프가 그 카메라를 건너뛰므로,
+#   한 번의 실패가 «그 카메라만 며칠째 안 찍힘» 으로 이어졌다.
+#   (2026-09-18 19:30 에 .151 이 빠진 뒤 09-23 까지 214슬롯 결번.)
+_RETRY_BASE_SECS     = 30                      # 첫 재시도까지
+_RETRY_MAX_SECS      = 600                     # 지수 증가 상한 (10분)
+
 # ── raw→온도 LUT 생성 파라미터 ───────────────────────────────
 _LUT_STRIDE       = 64      # raw 값 샘플 간격 (65536 / 64 = 1024 포인트)
 _LUT_TIME_BUDGET  = 5.0     # LUT 생성에 허용할 최대 초
@@ -319,15 +332,33 @@ class FrameWorker(QThread):
     def run(self):
         self._running = True
         fail_count    = 0
+        last_ok       = time.time()
+        stalled       = False
 
         while self._running:
             try:
                 frame = self.camera.query_frame(self.query_w, self.query_h)
                 if frame is None:
+                    # ★ None 은 예외가 아니라 fail_count 가 안 늘어난다.
+                    #   여기서 시간으로 재지 않으면 «조용한 정지» 를 영영
+                    #   못 잡는다 — 워커는 계속 돌고, 녹화는 켜진 채,
+                    #   파일만 0바이트로 남는다.
+                    if time.time() - last_ok >= _STALL_TIMEOUT_SECS:
+                        logger.warning(
+                            f"[{self.ip}] {_STALL_TIMEOUT_SECS}초간 프레임 없음"
+                            " — 재연결 요청")
+                        self._running = False
+                        self.reconnect_needed.emit()
+                        return
+                    if not stalled and time.time() - last_ok >= 5:
+                        stalled = True
+                        logger.warning(f"[{self.ip}] 프레임이 5초째 없습니다")
                     QThread.msleep(10)
                     continue
 
                 fail_count = 0
+                last_ok    = time.time()
+                stalled    = False
                 ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
                 fw = frame.width()
                 fh = frame.height()
@@ -706,6 +737,8 @@ class CameraPanel(QGroupBox):
 
         self._reconnect_scan    = None
         self._reconnect_worker  = None
+        self._retry_secs        = 0       # 재연결 재시도 간격 (지수 증가)
+        self._retry_count       = 0
 
         self._current_roi_type  = RoiType.Rect
 
@@ -868,6 +901,8 @@ class CameraPanel(QGroupBox):
 
         self.btn_record.setEnabled(True)
         self.preview.setText("")
+        self._retry_secs  = 0            # 붙었으니 재시도 간격을 되돌립니다
+        self._retry_count = 0
         self._start_worker()
 
         if self._was_recording:
@@ -1170,7 +1205,14 @@ class CameraPanel(QGroupBox):
         logger.info(f"[{self._ip}] 녹화 정지 ({self._rec_frames} frames)")
 
     def _close_writers(self):
+        empty_base = None
         if self._y16_writer:
+            # ★ 프레임이 0개면 파일을 남기지 않습니다. 0바이트 .y16raw 와
+            #   그 짝인 .y16meta 는 «정상처럼 읽히다가 터지는» 쓰레기라,
+            #   나중에 분석 단계에서 매번 걸러내야 합니다. 실제로 09-18
+            #   .151 은 34개 중 17개가 이것이었습니다.
+            if self._y16_writer.frame_count == 0:
+                empty_base = self._current_base
             self._y16_writer.close()
             self._y16_writer = None
         if self._video_writer:
@@ -1185,6 +1227,18 @@ class CameraPanel(QGroupBox):
             self._csv_file.close()
             self._csv_file   = None
             self._csv_writer = None
+
+        if empty_base:
+            removed = []
+            for ext in (".y16raw", ".y16meta", ".csv", ".avi"):
+                try:
+                    os.remove(empty_base + ext)
+                    removed.append(ext)
+                except OSError:
+                    pass
+            logger.warning(
+                f"[{self._ip}] 프레임 0개 — 빈 녹화를 지웠습니다 "
+                f"({os.path.basename(empty_base)}{', '.join(removed)})")
 
     # ── 파일 자동 분할 ────────────────────────────────────────
     def _should_rotate(self) -> bool:
@@ -1297,10 +1351,34 @@ class CameraPanel(QGroupBox):
         self._reconnect_worker.start()
 
     def _on_reconnect_failed(self, ip: str):
-        logger.error(f"[{ip}] 재연결 최종 실패 — 수동 재시도 필요")
-        self._was_recording = False
-        self.setTitle(f"재연결 실패  [{ip}]")
-        self.set_status(f"재연결 실패\n{ip}\n(IP 입력창에서 다시 연결하세요)")
+        """★ 여기서 포기하면 그 카메라는 «영영» 안 찍힙니다.
+
+        예약 녹화 루프가 `if panel.camera and not panel._recording` 으로
+        도는데, 재연결 실패 후 camera 가 None 이라 그 패널만 계속 건너뜁니다.
+        다른 카메라는 멀쩡히 돌기 때문에 «한 대만 저장된다» 로 보입니다.
+        실제로 2026-09-18 19:30 에 .151 이 빠진 뒤 09-23 까지 214슬롯이
+        .152 만 남았습니다. 그래서 포기하지 않고 계속 재시도합니다.
+        """
+        self._retry_secs = min(max(self._retry_secs * 2, _RETRY_BASE_SECS),
+                               _RETRY_MAX_SECS)
+        self._retry_count += 1
+        logger.error(f"[{ip}] 재연결 실패 {self._retry_count}회 — "
+                     f"{self._retry_secs}초 후 다시 시도합니다")
+        # 녹화 중이었다면 그 사실을 유지합니다. 재연결에 성공하는 순간
+        # attach_camera() 가 자동으로 녹화를 재개합니다.
+        self.setTitle(f"재연결 대기  [{ip}]  (시도 {self._retry_count}회)")
+        self.set_status(f"재연결 대기 중...\n{ip}\n"
+                        f"{self._retry_secs}초 후 재시도")
+        QTimer.singleShot(self._retry_secs * 1000, self._retry_reconnect)
+
+    def _retry_reconnect(self):
+        if self.camera is not None:      # 그 사이에 손으로 붙였으면 그만둡니다
+            return
+        logger.info(f"[{self._ip}] 재연결 재시도 {self._retry_count + 1}")
+        self.set_status(f"재연결 중...\n{self._ip}")
+        self._reconnect_scan = ScanWorker()
+        self._reconnect_scan.scan_done.connect(self._on_reconnect_scan_done)
+        self._reconnect_scan.start()
 
     # ── 정리 ──────────────────────────────────────────────────
     def cleanup(self):
@@ -1762,9 +1840,7 @@ class MainWindow(QWidget):
 
         # 녹화 시간대 밖
         if now < win_start or now >= win_stop:
-            if self._schedule_running:
-                self._schedule_stop_recording()
-                logger.info("[예약] 시간대 종료 — 녹화 정지")
+            self._schedule_stop_recording()
             self._update_schedule_label()
             return
 
@@ -1773,16 +1849,14 @@ class MainWindow(QWidget):
             slot_start, slot_stop = self._current_interval_slot(
                 now, win_start, win_stop)
             if slot_start is None:
-                if self._schedule_running:
-                    self._schedule_stop_recording()
+                self._schedule_stop_recording()
             elif slot_start <= now < slot_stop:
                 if not self._schedule_running:
                     self._schedule_start_recording()
                     logger.info(f"[예약] 반복 녹화 시작  "
                                 f"{slot_start:%H:%M}~{slot_stop:%H:%M}")
             else:
-                if self._schedule_running:
-                    self._schedule_stop_recording()
+                self._schedule_stop_recording()
         else:
             if not self._schedule_running:
                 self._schedule_start_recording()
@@ -1797,11 +1871,22 @@ class MainWindow(QWidget):
         logger.info("[예약] 녹화 시작")
 
     def _schedule_stop_recording(self):
+        """★ 매 tick 불려도 안전해야 합니다.
+
+        예전에는 `self._schedule_running` 이 True 일 때만 불렸는데, 슬롯
+        사이에는 그 값이 이미 False 라 «녹화 중인 패널» 을 아무도 멈추지
+        않았습니다. 재연결에 성공해 자동 재개된 패널이 그 틈에 걸리면
+        다음 슬롯 경계까지 계속 찍습니다. 그래서 상태를 보지 말고
+        «실제로 녹화 중인 패널» 을 기준으로 멈춥니다.
+        """
         self._schedule_running = False
+        stopped = 0
         for panel in self.panels:
             if panel._recording:
                 panel.toggle_record()
-        logger.info("[예약] 녹화 정지")
+                stopped += 1
+        if stopped:
+            logger.info(f"[예약] 녹화 정지 ({stopped}대)")
 
     def _update_schedule_label(self):
         now = datetime.now()
