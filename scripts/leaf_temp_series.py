@@ -80,17 +80,33 @@ def masks_from(annot, package, params):
     return out
 
 
-def slot_mean(path):
-    """슬롯 전체 프레임의 평균 온도맵 (FFC 톱니 상쇄) → (평균맵, 프레임수)."""
+def slot_mean(path, full=False):
+    """슬롯 전체 프레임의 평균 온도맵 (FFC 톱니 상쇄) → (평균맵, 프레임수).
+
+    ★ 0 으로 채워진 프레임을 걸러냅니다. 녹화가 중간에 잘린 파일이 있는데
+      (.151 09-17 의 06:30·12:00·12:30 은 프레임 655 부터 전부 0), 그대로
+      평균하면 −150 ℃ 같은 값이 나옵니다. 0 바이트 파일은 애초에 못 읽혀
+      눈에 띄지만, «절반만 잘린» 파일은 정상처럼 읽히고 숫자만 틀립니다.
+
+      절대영도(−273.15 ℃)는 raw 0 을 뜻하므로 내용 가정이 아니라 기록
+      실패의 표시입니다. `full=True` 면 (평균맵, 유효, 전체) 를 돌려줍니다.
+    """
     from read_y16 import load_meta, load_raw, temperature_converter
     meta = load_meta(path)
     arr = load_raw(path, meta)
     conv = temperature_converter(meta)
     n = arr.shape[0]
     acc = np.zeros((TH_H, TH_W), np.float64)
+    ok = 0
     for i in range(n):
-        acc += conv(np.asarray(arr[i])).astype(np.float64)[::-1, ::-1]
-    return acc/n, n
+        c = conv(np.asarray(arr[i])).astype(np.float64)
+        if c.mean() < -100:          # raw 0 으로 채워진 프레임
+            continue
+        acc += c[::-1, ::-1]
+        ok += 1
+    if ok == 0:
+        raise ValueError(f"유효 프레임이 없습니다: {os.path.basename(path)}")
+    return (acc/ok, ok, n) if full else (acc/ok, ok)
 
 
 def edge_fit(cels, polys):
