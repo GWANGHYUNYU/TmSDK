@@ -87,12 +87,27 @@ hr{border:0;border-top:1px solid var(--line);margin:10px 12px}
     </div>
   </div>
 
-  <h2>4 · 이름표</h2>
+  <h2>4 · 분류</h2>
+  <div class="box">
+    <div class="lay">
+      <button class="cls-b on" data-c="잎">잎 <span class="k">Q</span></button>
+      <button class="cls-b" data-c="꽃">꽃 <span class="k">W</span></button>
+      <button class="cls-b" data-c="딸기">딸기 <span class="k">E</span></button>
+    </div>
+    <div class="row" style="margin-top:5px">
+      <input type="text" id="tCls" placeholder="다른 분류 이름…" style="width:100%">
+    </div>
+    <div class="note" style="padding:6px 0 0">
+      개체 색이 <b>분류별</b>로 칠해집니다. 선택한 개체가 있으면 바로 바뀝니다.
+    </div>
+  </div>
+
+  <h2>5 · 이름표 (선택)</h2>
   <div class="box">
     <input type="text" id="tLabel" placeholder="예: 6-4  (비워도 됩니다)" style="width:100%">
   </div>
 
-  <h2>5 · 보기</h2>
+  <h2>6 · 보기</h2>
   <div class="box">
     <label class="ck"><input type="checkbox" id="cFlip" checked> RGB 180° 뒤집기</label>
     <label class="ck"><input type="checkbox" id="cFov" checked> 열화상 화각 경계</label>
@@ -104,7 +119,7 @@ hr{border:0;border-top:1px solid var(--line);margin:10px 12px}
     </div>
   </div>
 
-  <h2>6 · 개체 <span id="cnt" style="color:var(--acc)"></span></h2>
+  <h2>7 · 개체 <span id="cnt" style="color:var(--acc)"></span></h2>
   <div id="list"></div>
   <div class="box" style="padding-top:8px">
     <div class="row">
@@ -117,7 +132,7 @@ hr{border:0;border-top:1px solid var(--line);margin:10px 12px}
   </div>
 
   <hr>
-  <h2>7 · 내보내기</h2>
+  <h2>8 · 내보내기</h2>
   <div class="box">
     <div class="row"><button id="bJson">JSON 저장</button><button id="bMask">마스크 PNG</button></div>
     <div class="row" style="margin-top:5px"><button id="bLoad">JSON 불러오기…</button></div>
@@ -133,6 +148,7 @@ hr{border:0;border-top:1px solid var(--line);margin:10px 12px}
     <span class="k">Esc</span> 취소<br>
     사각형 — 드래그<br>
     점 — 클릭<br>
+    분류 <span class="k">Q</span>잎 <span class="k">W</span>꽃 <span class="k">E</span>딸기<br>
     확대 <span class="k">휠</span> · 이동 <span class="k">Space+드래그</span> 또는 <span class="k">가운데 버튼</span><br>
     꼭짓점은 <b>끌어서 수정</b>, <span class="k">Alt+클릭</span>으로 삭제
   </div>
@@ -155,11 +171,14 @@ const FOV = {
 const LAYER_COL = {420:"#4aa3ff",700:"#3fb950",1000:"#d29922"};
 const PALETTE = ["#ff4d4d","#4dff88","#4d9cff","#ffe14d","#ff4df0","#4dffee",
                  "#ff9a4d","#a64dff","#4dffb0","#ff4d94","#b0ff4d","#4dc4ff"];
+// 분류별 색 — 투영 스크립트(project_annot.py)와 같은 규약
+const CLS_COL = {"잎":"#5adc5a","꽃":"#ffffff","딸기":"#f04040"};
+const colorOf = (cls,i) => CLS_COL[cls] || PALETTE[i % PALETTE.length];
 
 const S = {
   imgs:[], idx:-1, img:null, W:0, H:0,
   shapes:{},            // 파일이름 → 배열
-  tool:"poly", layer:420, draft:null, sel:-1,
+  tool:"poly", layer:420, cls:"잎", draft:null, sel:-1,
   zoom:1, ox:0, oy:0, pan:null, drag:null, undo:[]
 };
 const cv = document.getElementById("cv"), ctx = cv.getContext("2d");
@@ -240,7 +259,7 @@ function shape(s,sel,draft){
       ctx.fillStyle="#fff"; ctx.fill(); ctx.strokeStyle=col; ctx.stroke(); });
   }
   if(!draft && p.length){
-    const t=`${s.id} · ${s.layer}`;
+    const t=`${s.id} ${s.cls||""} ${s.layer}`;
     ctx.font="bold 12px Consolas"; const w=ctx.measureText(t).width+8;
     ctx.fillStyle="#000b"; ctx.fillRect(p[0][0],p[0][1]-17,w,15);
     ctx.fillStyle=col; ctx.fillText(t,p[0][0]+4,p[0][1]-6);
@@ -261,8 +280,7 @@ function renderList(){
   el.innerHTML = arr.map((s,i)=>
     `<div class="item ${i===S.sel?'sel':''}" data-i="${i}">
        <span class="sw" style="background:${s.color}"></span>
-       <b>${s.id}</b> <span style="color:var(--dim)">${
-         {poly:"폴리곤",rect:"사각형",line:"선",point:"점"}[s.type]}</span>
+       <b>${s.id}</b> <span style="color:var(--dim)">${s.cls||"-"}</span>
        <small>${s.layer}${s.label?" · "+s.label:""}</small></div>`).join("");
   [...el.children].forEach(d=>d.onclick=()=>{ S.sel=+d.dataset.i; draw(); });
 }
@@ -274,9 +292,13 @@ function commit(s){
   if(!s || s.pts.length<(s.type==="point"?1:2)) return;
   snap(); const arr=list();
   s.id = "obj"+(arr.length+1);
-  s.color = PALETTE[arr.length % PALETTE.length];
+  s.cls = $("tCls").value.trim() || S.cls;
+  s.color = colorOf(s.cls, arr.length);
   s.label = $("tLabel").value.trim();
-  arr.push(s); S.sel=arr.length-1; save(); draw();
+  arr.push(s);
+  // ★ 그린 직후에는 «선택 해제» 한다. 선택된 채로 두면 다음 개체용으로
+  //   분류·층 버튼을 누를 때 방금 그린 개체가 같이 바뀐다.
+  S.sel = -1; save(); draw();
 }
 function hitVertex(x,y){
   const arr=list();
@@ -350,6 +372,7 @@ window.addEventListener("keydown",e=>{
     if(S.sel>=0){ snap(); list().splice(S.sel,1); S.sel=-1; save(); draw(); } }
   if(e.ctrlKey && e.key.toLowerCase()==="z") undo();
   if("1234".includes(e.key)) setTool(["poly","rect","line","point"][+e.key-1]);
+  const ck={q:"잎",w:"꽃",e:"딸기"}[e.key.toLowerCase()]; if(ck) setCls(ck);
   if(e.key.toLowerCase()==="f") fit();
   if(e.key==="0"){ S.zoom=1; fit0(); }
   if(e.key==="[") prev(); if(e.key==="]") next();
@@ -364,6 +387,15 @@ function setTool(t){ S.tool=t; S.draft=null;
   document.querySelectorAll(".tool").forEach(b=>b.classList.toggle("on",b.dataset.t===t));
   draw(); }
 document.querySelectorAll(".tool").forEach(b=>b.onclick=()=>setTool(b.dataset.t));
+function setCls(c){ S.cls=c; $("tCls").value="";
+  document.querySelectorAll(".cls-b").forEach(x=>x.classList.toggle("on",x.dataset.c===c));
+  if(S.sel>=0){ snap(); const s=list()[S.sel]; s.cls=c; s.color=colorOf(c,S.sel); save(); }
+  draw(); }
+document.querySelectorAll(".cls-b").forEach(b=>b.onclick=()=>setCls(b.dataset.c));
+$("tCls").onchange=()=>{ const v=$("tCls").value.trim(); if(!v) return;
+  S.cls=v; document.querySelectorAll(".cls-b").forEach(x=>x.classList.remove("on"));
+  if(S.sel>=0){ snap(); const s=list()[S.sel]; s.cls=v; s.color=colorOf(v,S.sel); save(); }
+  draw(); };
 document.querySelectorAll(".lay-b").forEach(b=>b.onclick=()=>{
   S.layer=+b.dataset.d;
   document.querySelectorAll(".lay-b").forEach(x=>x.classList.toggle("on",x===b));
@@ -410,10 +442,11 @@ function payload(){
       "투영: undistortPoints(pts,K_rgb,dist_rgb,P=K_rgb) → perspectiveTransform(H[layer]) "+
       "→ 열화상은 180° 회전한 좌표계.",
     layers_mm:[420,700,1000],
+    classes:[...new Set(Object.values(S.shapes).flat().map(o=>o.cls).filter(Boolean))],
     images:Object.entries(S.shapes)
       .filter(([,v])=>v.length)
       .map(([name,objs])=>({image:name,objects:objs.map(o=>({
-        id:o.id,type:o.type,layer_mm:o.layer,label:o.label||null,
+        id:o.id,type:o.type,class:o.cls||null,layer_mm:o.layer,label:o.label||null,
         points:o.pts.map(p=>[Math.round(p[0]*10)/10,Math.round(p[1]*10)/10])}))}))
   };
 }
@@ -447,8 +480,8 @@ $("jIn").onchange=e=>{
     if(j.fov_polygon){ for(const k in j.fov_polygon) FOV[+k]=j.fov_polygon[k]; draw(); }
     if(j.images) j.images.forEach(im=>{
       S.shapes[im.image]=im.objects.map((o,i)=>({
-        type:o.type,layer:o.layer_mm,label:o.label,pts:o.points,
-        id:o.id||("obj"+(i+1)),color:PALETTE[i%PALETTE.length]}));
+        type:o.type,layer:o.layer_mm,label:o.label,pts:o.points,cls:o.class||null,
+        id:o.id||("obj"+(i+1)),color:colorOf(o.class,i)}));
     });
     save(); draw(); alert("불러왔습니다.");
   }catch(err){ alert("읽지 못했습니다: "+err.message); } };
