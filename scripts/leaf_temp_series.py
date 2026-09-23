@@ -53,8 +53,19 @@ def setup_mpl():
     return matplotlib
 
 
-def masks_from(annot, package, params):
-    """어노테이션 → 열화상 좌표 마스크 (개체별)."""
+def masks_from(annot, package, params, camera=None):
+    """어노테이션 → 열화상 좌표 마스크 (개체별).
+
+    ★ 프레임마다 좌표계가 다를 수 있습니다. 통합 파일(version 2)은 image 에
+      `space` 를 달고 있습니다.
+
+        space="rgb"      원본 RGB 좌표 → 층별 H(d) 로 **투영**해야 합니다
+        space="thermal"  이미 열화상 좌표 → **투영하면 안 됩니다** (÷ upscale)
+
+      `space` 가 없는 옛 파일은 전부 RGB 로 봅니다(그때는 그것뿐이었습니다).
+      `camera` 를 주면 그 카메라의 프레임만 고릅니다 — .151 마스크를 .152 에
+      쓰는 사고를 파일 단계에서 막습니다.
+    """
     import importlib.util
     spec = importlib.util.spec_from_file_location(
         "pa", os.path.join(HERE, "scripts", "project_annot.py"))
@@ -64,15 +75,27 @@ def masks_from(annot, package, params):
     A = json.load(open(annot, encoding="utf-8"))
     out = []
     for im in A["images"]:
+        space = im.get("space", "rgb")
+        cam = im.get("camera", "")
+        if camera and cam and not cam.endswith(str(camera)):
+            continue
+        up = im.get("upscale", 1)
         for o in im["objects"]:
             if o["type"] not in ("poly", "rect"):
                 continue
-            p = pa.project(o["points"], K, D, Kt, R, T, float(o["layer_mm"]))
+            if space == "thermal":
+                p = np.asarray(o.get("points_thermal")
+                               or (np.array(o["points"], float)/up),
+                               dtype=np.float32)
+            else:
+                p = pa.project(o["points"], K, D, Kt, R, T,
+                               float(o["layer_mm"]))
             m = np.zeros((TH_H, TH_W), np.uint8)
             cv2.fillPoly(m, [np.round(p).astype(np.int32)], 1)
             if m.sum() < 8:
                 continue
-            out.append(dict(src=im["image"], id=o["id"],
+            out.append(dict(src=im["image"], id=o["id"], space=space,
+                            camera=cam,
                             key=im["image"].replace(".png", "")+"/"+o["id"],
                             cls=o.get("class") or "-",
                             layer=int(o["layer_mm"]), mask=m.astype(bool),
