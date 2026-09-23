@@ -176,9 +176,9 @@ def main():
                     help="비우면 raw 폴더의 카메라를 전부 훑는다")
     ap.add_argument("--cam", default="192_168_0_151",
                     help="기준 프레임이 속한 카메라")
-    ap.add_argument("--ref-day", default="20260918")
-    ap.add_argument("--ref-slot", default="080000",
-                    help="어노테이션을 칠한 슬롯 (정합 기준)")
+    ap.add_argument("--cam-ref",
+                    default="151=20260918_080000,152=20260921_140000",
+                    help="카메라별 기준 슬롯 «번호=날짜_시각»")
     ap.add_argument("--raw", default="calib/raw/th",
                     help="아래 하위 폴더까지 재귀로 훑습니다")
     ap.add_argument("--out", default="output/leaftemp")
@@ -187,23 +187,18 @@ def main():
     args = ap.parse_args()
     os.makedirs(args.out, exist_ok=True)
 
-    objs = LTS.masks_from(args.annot, args.package, args.params)
-    polys = [o["poly"] for o in objs]
     print("=" * 88)
-    print(f"엽온 전량 추출 · 카메라 {args.cam[-3:]} · 기준 "
-          f"{args.ref_day} {args.ref_slot[:2]}:{args.ref_slot[2:4]}")
+    print("엽온 전량 추출")
     print("=" * 88)
-    print(f"  개체 {len(objs)}개 "
-          f"(잎 {sum(1 for o in objs if o['cls']=='잎')} · "
-          f"꽃 {sum(1 for o in objs if o['cls']=='꽃')} · "
-          f"딸기 {sum(1 for o in objs if o['cls']=='딸기')})")
 
-    cand = th_files(args.raw,
-                    f"{args.cam}_{args.ref_day}_{args.ref_slot}.y16raw")
-    if not cand:
-        raise SystemExit(f"기준 슬롯을 못 찾았습니다: {args.ref_day} "
-                         f"{args.ref_slot}")
-    ref = struct(LTS.slot_mean(cand[0])[0])
+    # ★ 카메라마다 «자기» 마스크와 «자기» 기준 슬롯을 씁니다. 예전에는
+    #   .151 하나뿐이라 전역으로 두었는데, .152 어노테이션이 생긴 뒤로는
+    #   그대로 두면 .151 마스크를 .152 에 들이대게 됩니다.
+    refs = {}
+    for kv in args.cam_ref.split(","):
+        c, v = kv.split("=")
+        refs[c.strip()] = v.strip()
+    print("  기준 슬롯: " + "  ".join(f".{c} {v}" for c, v in refs.items()))
 
     allf = th_files(args.raw, "*.y16raw")
     cams = ([c.strip() for c in args.cams.split(",") if c.strip()] or
@@ -213,43 +208,40 @@ def main():
 
     rows, summary = [], []
     for cam in cams:
+        short = cam[-3:]
+        objs = LTS.masks_from(args.annot, args.package, args.params,
+                              camera=short)
         days = sorted({re.search(r"_(\d{8})_", os.path.basename(p)).group(1)
                        for p in th_files(args.raw, f"{cam}_*.y16raw")})
-        print(f"\n── 카메라 {cam[-3:]} · 날짜 {len(days)}개 "
+        print(f"\n── 카메라 {short} · 날짜 {len(days)}개 "
               f"({days[0]} ~ {days[-1]}) " + "─"*30)
-
-        # ★ 값싼 선별을 먼저 한다. 카메라가 다르면 장면이 통째로 다른데,
-        #   날짜마다 1565프레임을 다 읽어 «불가» 를 확인하는 것은 낭비다
-        #   (.152 만 900슬롯). 대표 주간 슬롯 하나로 먼저 거른다.
-        if cam != args.cam:
-            probe = None
+        if not objs:
+            print("  이 카메라의 어노테이션이 없습니다 — 건너뜁니다")
             for day in days:
-                for p in th_files(args.raw, f"{cam}_{day}_1*.y16raw"):
-                    if os.path.getsize(p) < 1e6:
-                        continue
-                    try:
-                        probe = (day, LTS.slot_mean(p)[0])
-                    except Exception:
-                        continue
-                    break
-                if probe:
-                    break
-            if probe is None:
-                print("  대표 슬롯을 못 읽었습니다 — 건너뜁니다")
-                continue
-            c0, dx0, dy0 = best_shift(ref, struct(probe[1]), rad=20)
-            print(f"  대표 슬롯 {probe[0]} 로 선별 — 기준과 최대상관 "
-                  f"{c0:+.3f} @ ({dx0:+d},{dy0:+d})")
-            if c0 < MIN_CORR:
-                print(f"  ★ 다른 장면입니다. 이 카메라 전체를 뺍니다 "
-                      f"({len(days)}일). 이 마스크로는 잴 수 없습니다.")
-                for day in days:
-                    n = len(th_files(args.raw, f"{cam}_{day}_*.y16raw"))
-                    summary.append(dict(카메라=cam[-3:], 날짜=day, 슬롯수=n,
-                                        주간슬롯="", 상관=round(c0, 3),
-                                        dx=dx0, dy=dy0, 일관성="",
-                                        마스크판정="불가(다른 카메라)"))
-                continue
+                summary.append(dict(
+                    카메라=short, 날짜=day,
+                    슬롯수=len(th_files(args.raw, f"{cam}_{day}_*.y16raw")),
+                    주간슬롯="", 상관="", dx="", dy="", 일관성="",
+                    마스크판정="어노테이션 없음"))
+            continue
+        polys = [o["poly"] for o in objs]
+        oth = sum(1 for o in objs if o["cls"] not in ("잎", "꽃", "딸기"))
+        print(f"  개체 {len(objs)}개 "
+              f"(잎 {sum(1 for o in objs if o['cls']=='잎')} · "
+              f"꽃 {sum(1 for o in objs if o['cls']=='꽃')} · "
+              f"딸기 {sum(1 for o in objs if o['cls']=='딸기')} · "
+              f"기타 {oth})")
+        if short not in refs:
+            print("  기준 슬롯이 지정되지 않았습니다 — 건너뜁니다")
+            continue
+        cand = th_files(args.raw, f"{cam}_{refs[short]}.y16raw")
+        if not cand:
+            print(f"  기준 슬롯 {refs[short]} 를 못 찾았습니다 — 건너뜁니다")
+            continue
+        rc = LTS.slot_mean(cand[0])[0]
+        ref = struct(rc)
+        print(f"  기준 {refs[short]}  ·  마스크 적합도 "
+              f"{LTS.edge_fit(rc, polys)[0]:.3f}")
 
         print(f"  {'날짜':>10}{'슬롯':>6}{'주간':>6}{'상관':>8}{'이동':>9}"
               f"{'일관성':>8}  판정")
@@ -264,26 +256,40 @@ def main():
             print(f"  {day:>10}{len(slots):>6}{nday:>6}{corr:>8.3f}"
                   f"{f'({dx:+d},{dy:+d})':>9}{agree*100:>7.0f}%  {v}"
                   + ("" if v != "불가" else "  ← 마스크 못 씀"))
-            summary.append(dict(카메라=cam[-3:], 날짜=day, 슬롯수=len(slots),
-                                주간슬롯=nday, 상관=round(corr, 3),
-                                dx=dx, dy=dy, 일관성=round(agree, 3),
-                                마스크판정=v))
+            srow = dict(카메라=cam[-3:], 날짜=day, 슬롯수=len(slots),
+                        주간슬롯=nday, 상관=round(corr, 3),
+                        dx=dx, dy=dy, 일관성=round(agree, 3),
+                        마스크판정=v)
+            summary.append(srow)
         # ★ «판정불가» 도 빼야 한다. 주간 슬롯이 없어 심사를 못 한 날은
         #   «통과» 가 아니라 «모름» 이다. 09-14 가 그런 날인데, 하필
         #   체커보드를 들고 찍은 캘리브레이션 촬영일이라 장면이 아예 다르다.
             if v in ("불가", "판정불가") and not args.include_invalid:
                 continue
-            use = objs if (dx, dy) == (0, 0) else [
-                shift_obj(o, dx, dy) for o in objs]
-            upoly = [o["poly"] for o in use]
+            use, upoly = objs, polys
             if (dx, dy) != (0, 0):
-                # 되민 방향이 맞는지 확인합니다 — 틀리면 적합도가 떨어집니다.
+                # ★ 되밀어 보고 «나아졌을 때만» 씁니다. 상호상관이 1화소를
+                #   가리켜도 그것이 실제 이동이 아니라 잡음일 수 있습니다.
+                #   적합도가 떨어지면 그게 증거이므로 보정을 버립니다 —
+                #   재 보고 나빠졌는데도 적용하면, 측정을 해 놓고 무시하는
+                #   꼴이 됩니다.
+                cand = [shift_obj(o, dx, dy) for o in objs]
+                cpoly = [o["poly"] for o in cand]
                 c = slots[len(slots)//2][2]
                 f0 = LTS.edge_fit(c, polys)[0]
-                f1 = LTS.edge_fit(c, upoly)[0]
-                print(f"      보정 ({dx:+d},{dy:+d}) 적용 — 적합도 "
-                      f"{f0:.3f} → {f1:.3f}"
-                      + ("" if f1 >= f0 else "  ⚠ 나빠졌습니다"))
+                f1 = LTS.edge_fit(c, cpoly)[0]
+                if f1 >= f0:
+                    use, upoly = cand, cpoly
+                    print(f"      보정 ({dx:+d},{dy:+d}) 적용 — 적합도 "
+                          f"{f0:.3f} → {f1:.3f}")
+                    srow["적합도_보정전"] = round(f0, 3)
+                    srow["적합도_보정후"] = round(f1, 3)
+                else:
+                    print(f"      보정 ({dx:+d},{dy:+d}) 버림 — 적합도가 "
+                          f"{f0:.3f} → {f1:.3f} 로 나빠집니다")
+                    dx = dy = 0
+                    v = "확인" if corr >= 0.40 else "주의"
+                    srow.update(dx=0, dy=0, 마스크판정=v)
             for lab, hh, cels, ok, tot in slots:
                 fit, gmag = LTS.edge_fit(cels, upoly)
                 for o in use:
@@ -310,7 +316,7 @@ def main():
     #   얼마나 뚜렷한지에 좌우되지만, 개체별 편차는 «마스크가 같은 잎을
     #   덮고 있는가» 만 묻습니다. 실제로 09-17 은 상관 0.300(주의)인데
     #   편차 상관은 +0.954 로, 같은 날 앞뒤 절반끼리(0.878)보다 높습니다.
-    leaf_keys = [o["key"] for o in objs if o["cls"] == "잎"]
+    leaf_keys = sorted({r["개체"] for r in rows if r["분류"] == "잎"})
     bykey = {}
     for r in rows:
         if r["점등"] and r["분류"] == "잎":
@@ -322,15 +328,17 @@ def main():
         ss = [k for k in bykey if k[0] == cam and k[1] == day]
         if not ss:
             return None
-        M = np.array([[bykey[s][k] for k in leaf_keys] for s in ss])
+        ks = [k for k in leaf_keys if k in bykey[ss[0]]]
+        M = np.array([[bykey[s][k] for k in ks] for s in ss])
         return (M - M.mean(1, keepdims=True)).mean(0)
 
-    base = devvec(args.cam[-3:], args.ref_day)
-    print(f"\n  교차검증 — 개체별 편차가 기준일({args.ref_day})과 같은가")
+    base = {c: devvec(c, refs[c].split("_")[0]) for c in refs}
+    print("\n  교차검증 — 개체별 편차가 그 카메라의 기준일과 같은가")
     for s in summary:
         v = devvec(s["카메라"], s["날짜"])
-        s["개체편차상관"] = ("" if v is None or base is None
-                       else round(float(np.corrcoef(v, base)[0, 1]), 3))
+        b0 = base.get(s["카메라"])
+        s["개체편차상관"] = ("" if v is None or b0 is None or len(v) != len(b0)
+                       else round(float(np.corrcoef(v, b0)[0, 1]), 3))
         if s["개체편차상관"] == "":
             continue
         c = s["개체편차상관"]

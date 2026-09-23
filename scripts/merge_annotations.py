@@ -69,6 +69,20 @@ def grade(f):
     return "미확인"            # 경계라 부를 것이 없는 자리
 
 
+def clean_slots(cam, day, hours=(11, 12, 13), max_span=12.0):
+    """그 날의 «깨끗한» 점등 슬롯 온도맵들.
+
+    온도폭이 큰 슬롯은 조명·사람 같은 뜨거운 것이 들어온 것이라 뺍니다
+    (정상은 8~9 ℃, 09-21 10:00 은 18.3 ℃ 였습니다).
+    """
+    out = []
+    for h in hours:
+        p, c = SG.find_slot(cam, day, [h])
+        if c is not None and np.ptp(c) <= max_span:
+            out.append(c)
+    return out
+
+
 def poly_area(p):
     return float(0.5*abs(np.dot(p[:, 0], np.roll(p[:, 1], 1)) -
                          np.dot(p[:, 1], np.roll(p[:, 0], 1))))
@@ -147,17 +161,33 @@ def main():
         print(f"  {os.path.basename(f):<44} 프레임 {len(A.get('images', []))}"
               f"  채택 {n}  ({ts[:19]})")
 
-    out_images, stats = [], dict(rgb=0, th=0, obj=0, noclass=0, lowfit=0)
+    out_images, stats = [], dict(rgb=0, th=0, obj=0, noclass=0, lowfit=0, dupe=0)
     print()
     for name in sorted(picked):
         im = picked[name]
         objs = [o for o in im["objects"] if o["type"] in ("poly", "rect")]
+        # ★ 같은 프레임에 같은 id 가 둘 있으면 여기서 잡아야 합니다. 그냥
+        #   두면 분석 쪽에서 두 개체가 한 칸에 겹쳐 «x 와 y 의 길이가 다르다»
+        #   로 터지는데, 그 메시지만 봐서는 원인을 찾을 수 없습니다.
+        #   (20260921_1400 에 obj8 이 두 개 있었습니다. 도구가 개수로 번호를
+        #   매겨서, 지우고 다시 그리면 번호가 겹쳤습니다 — 도구도 고쳤습니다.)
+        seen = {}
+        for o in objs:
+            if o["id"] in seen:
+                seen[o["id"]] += 1
+                new = f"{o['id']}_{seen[o['id']]}"
+                print(f"  ⚠ {name} 에 {o['id']} 가 중복 — {new} 로 바꿉니다")
+                o["id"] = new
+                stats["dupe"] += 1
+            else:
+                seen[o["id"]] = 1
         m = TH_NAME.match(os.path.splitext(name)[0])
         if m:
             # ── 열화상 프레임 ────────────────────────────────────
             day, hh, mm = m.groups()
             up = args.upscale
             p, cels = SG.find_slot(args.th_cam, day, [int(hh)])
+            clean = clean_slots(args.th_cam, day)
             rec = dict(image=name, space="thermal",
                        camera=f"192.168.0.{args.th_cam}",
                        size=[TH_W*up, TH_H*up], upscale=up,
@@ -182,20 +212,35 @@ def main():
                 if cels is not None and mk.sum() >= 3:
                     d["edge_fit"] = round(LTS.edge_fit(cels, [q])[0], 3)
                     d["mean_C"] = round(float(cels[mk > 0].mean()), 3)
-                    if d["edge_fit"] < FIT_LOW:
+                    # ★ 그린 슬롯 하나로 등급을 매기면 안 됩니다. 그 슬롯에
+                    #   조명·사람 같은 뜨거운 것이 들어와 있으면 편차 배율이
+                    #   끌려가 «경계가 없다» 로 나옵니다. 실제로 09-21 10:00
+                    #   에서 420 mm 개체들이 0.86~1.19 였는데, 같은 날 깨끗한
+                    #   슬롯에서는 1.49~1.93 이었습니다. 장면은 그대로였고
+                    #   (조명 밴드를 뺀 상관 0.92) 슬롯만 이상했던 것입니다.
+                    #   그래서 그 날 깨끗한 점등 슬롯들의 중앙값으로 매깁니다.
+                    if clean:
+                        fs = [LTS.edge_fit(c, [q])[0] for c in clean]
+                        d["edge_fit_median"] = round(float(np.median(fs)), 3)
+                        d["fit_slots"] = len(fs)
+                    base_fit = d.get("edge_fit_median", d["edge_fit"])
+                    if base_fit < FIT_LOW:
                         stats["lowfit"] += 1
                 d = apply(name, o, d)
                 if "edge_fit" in d:
-                    d["fit_grade"] = grade(d["edge_fit"])
+                    d["fit_grade"] = grade(
+                        d.get("edge_fit_median", d["edge_fit"]))
                 if not d.get("class"):
                     stats["noclass"] += 1
                 oo.append(d)
             rec["objects"] = oo
             stats["th"] += 1
-            fits = [o["edge_fit"] for o in oo if "edge_fit" in o]
+            fits = [o.get("edge_fit_median", o["edge_fit"])
+                    for o in oo if "edge_fit" in o]
             g = [o.get("fit_grade") for o in oo]
             print(f"  {name:<22} 열화상 .{args.th_cam}  개체 {len(oo):>2}  "
-                  f"적합도 중앙 {np.median(fits) if fits else float('nan'):.2f}  "
+                  f"적합도 {np.median(fits) if fits else float('nan'):.2f}"
+                  f"({len(clean)}슬롯)  "
                   f"확인 {g.count('확인')} · 보류 {g.count('보류')} · "
                   f"미확인 {g.count('미확인')}")
         else:
@@ -256,6 +301,8 @@ def main():
     if stats["noclass"]:
         print(f"  ⚠ 분류가 비어 있는 개체 {stats['noclass']}개 — "
               "쓰기 전에 채우거나 빼십시오")
+    if stats["dupe"]:
+        print(f"  ⚠ id 가 겹쳐 이름을 바꾼 개체 {stats['dupe']}개")
     if stats["lowfit"]:
         print(f"  ⚠ 적합도 {FIT_LOW} 미만(«미확인») 인 열화상 개체 "
               f"{stats['lowfit']}개 — 지우지 않고 수치로 남겼습니다")

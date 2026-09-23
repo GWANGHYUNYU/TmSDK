@@ -302,7 +302,14 @@ function snap(){ const c=cur(); if(c) S.undo.push(JSON.stringify(S.shapes[c.name
 function commit(s){
   if(!s || s.pts.length<(s.type==="point"?1:2)) return;
   snap(); const arr=list();
-  s.id = "obj"+(arr.length+1);
+  // ★ 개수로 번호를 매기면 «지우고 다시 그리기» 에서 번호가 겹친다.
+  //   실제로 20260921_1400 에 obj8 이 두 개 생겨, 분석 쪽에서 두 개체가
+  //   한 칸에 겹쳐 «x 와 y 의 길이가 다르다» 로 터졌다. 쓰인 적 없는
+  //   번호를 골라야 한다.
+  const used = new Set(arr.map(x=>x.id));
+  let n = arr.length+1;
+  while(used.has("obj"+n)) n++;
+  s.id = "obj"+n;
   s.cls = $("tCls").value.trim() || S.cls;
   s.color = colorOf(s.cls, arr.length);
   s.label = $("tLabel").value.trim();

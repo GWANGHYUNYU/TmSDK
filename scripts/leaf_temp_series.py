@@ -172,7 +172,10 @@ def main():
     mpl = setup_mpl()
     import matplotlib.pyplot as plt
 
-    objs = masks_from(args.annot, args.package, args.params)
+    # ★ 카메라를 넘겨야 합니다. 통합 파일에는 두 카메라의 어노테이션이
+    #   같이 들어 있어서, 안 넘기면 .151 마스크를 .152 그림에 씁니다.
+    objs = masks_from(args.annot, args.package, args.params,
+                      camera=args.cam[-3:])
     print("=" * 84)
     print(f"개체별 엽온 시계열 · {args.cam[-3:]} · {args.day}")
     print("=" * 84)
@@ -193,6 +196,8 @@ def main():
         except Exception:
             continue
         slots.append((f"{t[:2]}:{t[2:4]}", int(t[:2])+int(t[2:4])/60, cels, n))
+    if not objs:
+        raise SystemExit(f"{args.cam[-3:]} 의 어노테이션이 없습니다.")
     if not slots:
         raise SystemExit("쓸 수 있는 슬롯이 없습니다.")
     # ★ 파일 경로 순서가 곧 시각 순서라고 믿으면 안 됩니다. 녹화가 여러
@@ -223,7 +228,7 @@ def main():
               + ("  잎 경계 없음(소등) — 판정 보류" if gmag < 0.60
                  else ("  ⚠ 마스크 확인" if f < 1.03 else "  마스크 일치")))
 
-    with open(os.path.join(args.out, f"leaf_temp_{args.day}.csv"), "w",
+    with open(os.path.join(args.out, f"leaf_temp_{args.cam[-3:]}_{args.day}.csv"), "w",
               newline="", encoding="utf-8-sig") as fh:
         w = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
         w.writeheader()
@@ -295,7 +300,7 @@ def main():
     a.set_title(f"{labs[k]} 열화상 + 마스크"); a.axis("off")
 
     fig.tight_layout()
-    p1 = os.path.join(args.out, f"leaf_temp_{args.day}.png")
+    p1 = os.path.join(args.out, f"leaf_temp_{args.cam[-3:]}_{args.day}.png")
     fig.savefig(p1, dpi=130); plt.close(fig)
 
     print(f"\n  저장  {p1}")
