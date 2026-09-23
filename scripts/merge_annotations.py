@@ -54,6 +54,21 @@ RGB_SIZE = [1920, 1080]
 TH_NAME = re.compile(r"^(\d{8})_(\d{2})(\d{2})$")
 
 
+# ★ 적합도를 1.0 에서 딱 자르면 0.97 과 1.00 이 «실패/성공» 으로 갈립니다.
+#   그 차이에는 의미가 없습니다. 실제 분포를 보고 띠로 나눕니다 —
+#   .151 에서 점등 슬롯이 1.04~1.22, 소등(맞출 경계가 아예 없는 때)이
+#   0.76~0.91 이었습니다. 그 사이는 «판단 보류» 로 두는 것이 정직합니다.
+FIT_OK, FIT_LOW = 1.15, 0.85
+
+
+def grade(f):
+    if f >= FIT_OK:
+        return "확인"          # 실제 열 경계 위에 있다
+    if f >= FIT_LOW:
+        return "보류"          # 그 구역 대비가 약해 확인도 반증도 안 된다
+    return "미확인"            # 경계라 부를 것이 없는 자리
+
+
 def poly_area(p):
     return float(0.5*abs(np.dot(p[:, 0], np.roll(p[:, 1], 1)) -
                          np.dot(p[:, 1], np.roll(p[:, 0], 1))))
@@ -68,7 +83,37 @@ def main():
                     help="RGB 와 스테레오가 잡힌 카메라")
     ap.add_argument("--upscale", type=int, default=6)
     ap.add_argument("--out", default="output/annot_in/annotations_final.json")
+    ap.add_argument("--fix", action="append", default=[],
+                    help="«프레임/개체:필드=값». 예: "
+                         "f00015.png/obj11:class=잎")
+    ap.add_argument("--note", action="append", default=[],
+                    help="«프레임/개체=설명». 근거가 영상 밖에 있을 때 씁니다")
     args = ap.parse_args()
+
+    # ★ 손으로 JSON 을 고치지 않고 명령줄로 받습니다. 고친 내역이 결과
+    #   파일에 그대로 남아야, 나중에 «이 값은 어디서 왔나» 를 물을 수 있습니다.
+    fixes, notes = {}, {}
+    for f in args.fix:
+        tgt, kv = f.split(":", 1)
+        k, v = kv.split("=", 1)
+        fixes.setdefault(tgt, {})[k] = int(v) if v.isdigit() else v
+    for n in args.note:
+        tgt, v = n.split("=", 1)
+        notes[tgt] = v
+
+    def apply(name, o, d):
+        key = f"{name}/{o['id']}"
+        hit = fixes.get(key) or next(
+            (v for k, v in fixes.items() if key.endswith(k)), None)
+        if hit:
+            for k, v in hit.items():
+                d[k] = v
+            d["edited"] = True
+        nt = notes.get(key) or next(
+            (v for k, v in notes.items() if key.endswith(k)), None)
+        if nt:
+            d["note"] = nt
+        return d
 
     files = []
     for g in args.inputs:
@@ -137,17 +182,22 @@ def main():
                 if cels is not None and mk.sum() >= 3:
                     d["edge_fit"] = round(LTS.edge_fit(cels, [q])[0], 3)
                     d["mean_C"] = round(float(cels[mk > 0].mean()), 3)
-                    if d["edge_fit"] < 1.0:
+                    if d["edge_fit"] < FIT_LOW:
                         stats["lowfit"] += 1
-                if not o.get("class"):
+                d = apply(name, o, d)
+                if "edge_fit" in d:
+                    d["fit_grade"] = grade(d["edge_fit"])
+                if not d.get("class"):
                     stats["noclass"] += 1
                 oo.append(d)
             rec["objects"] = oo
             stats["th"] += 1
             fits = [o["edge_fit"] for o in oo if "edge_fit" in o]
+            g = [o.get("fit_grade") for o in oo]
             print(f"  {name:<22} 열화상 .{args.th_cam}  개체 {len(oo):>2}  "
                   f"적합도 중앙 {np.median(fits) if fits else float('nan'):.2f}  "
-                  f"1.0 미만 {sum(1 for f in fits if f < 1.0)}개")
+                  f"확인 {g.count('확인')} · 보류 {g.count('보류')} · "
+                  f"미확인 {g.count('미확인')}")
         else:
             # ── RGB 프레임 ──────────────────────────────────────
             rec = dict(image=name, space="rgb",
@@ -161,14 +211,15 @@ def main():
                        source=origin[name][0])
             oo = []
             for o in objs:
-                if not o.get("class"):
+                d = apply(name, o, dict(
+                    id=o["id"], type=o["type"],
+                    **{"class": o.get("class")},
+                    layer_mm=o.get("layer_mm"), points=o["points"],
+                    area_px=int(round(
+                        poly_area(np.array(o["points"], float))))))
+                if not d.get("class"):
                     stats["noclass"] += 1
-                oo.append(dict(id=o["id"], type=o["type"],
-                               **{"class": o.get("class")},
-                               layer_mm=o.get("layer_mm"),
-                               points=o["points"],
-                               area_px=int(round(
-                                   poly_area(np.array(o["points"], float))))))
+                oo.append(d)
             rec["objects"] = oo
             stats["rgb"] += 1
             print(f"  {name:<22} RGB .{args.rgb_cam}       개체 {len(oo):>2}")
@@ -185,9 +236,12 @@ def main():
               "열화상 좌표에도 투영을 걸게 됩니다."),
         classes=classes,
         layers_mm=[420, 700, 1000],
-        quality_note=("열화상 개체의 `edge_fit` 은 «그 자리에 실제 열 경계가 "
-                      "있는가» 입니다. 1 미만은 틀렸다는 뜻이 아니라 그 구역의 "
-                      "열 구조가 약해 확인할 수 없다는 뜻입니다."),
+        quality_note=(f"열화상 개체의 `edge_fit` 은 «그 자리에 실제 열 경계가 "
+                      f"있는가» 입니다. `fit_grade`: {FIT_OK} 이상 «확인», "
+                      f"{FIT_LOW}~{FIT_OK} «보류», 미만 «미확인». 보류·미확인은 "
+                      f"틀렸다는 뜻이 아니라 그 구역의 열 구조가 약해 확인도 "
+                      f"반증도 안 된다는 뜻입니다."),
+        edits=args.fix, notes=args.note,
         sources=[os.path.basename(f) for f in files],
         images=out_images,
     )
@@ -203,8 +257,8 @@ def main():
         print(f"  ⚠ 분류가 비어 있는 개체 {stats['noclass']}개 — "
               "쓰기 전에 채우거나 빼십시오")
     if stats["lowfit"]:
-        print(f"  ⚠ 적합도 1.0 미만인 열화상 개체 {stats['lowfit']}개 — "
-              "지우지 않고 수치로 남겼습니다")
+        print(f"  ⚠ 적합도 {FIT_LOW} 미만(«미확인») 인 열화상 개체 "
+              f"{stats['lowfit']}개 — 지우지 않고 수치로 남겼습니다")
     print(f"\n  저장  {args.out}")
     return 0
 
