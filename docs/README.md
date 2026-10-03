@@ -8,6 +8,7 @@
 
 | 순서 | 문서 | 내용 | 분량 |
 |---|---|---|---|
+| **0** | [**HANDOFF.md**](HANDOFF.md) | ★ **인수인계** — 전체 지도. 처음이면 여기부터 | 8분 |
 | 1 | **이 문서** | 프로젝트 한 장 요약, 읽는 순서, 환경 구축 | 5분 |
 | 2 | [status.md](status.md) | **지금 어디까지 왔고 다음에 뭘 하는가** · 미해결 질문 | 10분 |
 | 3 | [leaf_segmentation_plan.md](leaf_segmentation_plan.md) | 기술 기획서 — 요구사항 역산부터 일정까지 | 30분 |
@@ -15,7 +16,7 @@
 | 5 | [thermal_rgb_calibration.md](thermal_rgb_calibration.md) | 열화상↔RGB 정합 캘리브레이션 실무 가이드 | 15분 |
 | 6 | [distance_registry.md](distance_registry.md) | **거리 대장** — 실측·역산 전부. 거리 수치는 여기가 기준 | 10분 |
 | ★ | [**calibration_final.md**](calibration_final.md) | **정합 캘리브레이션 최종 보고** — 확정값·근거·함정·다음 단계 | 12분 |
-| ★ | [**report/2026-09-23/**](../report/2026-09-23/README.md) | **최신 보고** — 개체 107개로 두 구역 동시 측정. 722슬롯 | 12분 |
+| ★ | [**report/2026-09-23/**](../report/2026-09-23/README.md) | **최신 보고** — 개체 107개로 두 구역 동시 측정. 447슬롯 | 12분 |
 | — | [report/mid-term/](../report/mid-term/README.md) | 중간보고 (2026-08) — 마커 3개 시절. 대외 설명 배경 | 15분 |
 | ★ | [**segmentation_guide.md**](segmentation_guide.md) | **개체 분할 가이드** — 대표 RGB·열화상에서 잎·꽃·열매 찍는 법 | 10분 |
 | — | [calibration_verification_log.md](calibration_verification_log.md) | 검증 수치 기록 — 결론을 재검증·반박하려는 사람용 | 8분 |
@@ -27,7 +28,7 @@
 > 전체 내용은 [**최종 보고**](calibration_final.md) 한 장에 정리돼 있고,
 > 코드가 읽을 값은 [`params/`](../params/README.md) 에 있습니다.
 
-시간이 없다면 **2번(status.md)만** 읽으십시오. 무엇을 해야 하는지는 거기 다 있습니다.
+시간이 없다면 **0번(HANDOFF.md)만** 읽으십시오. 전체 지도와 다음 할 일이 거기 있습니다.
 
 ---
 

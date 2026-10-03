@@ -394,9 +394,13 @@ def main():
     p2 = os.path.join(args.out, "leaf_temp_days.csv")
     write_csv(p2, summary)
 
-    days_in = sorted({r["날짜"] for r in rows})
-    print(f"\n  저장  {p1}  ({len(rows)}행 · 날짜 {len(days_in)}개"
-          f" · 슬롯 {len(rows)//max(len(objs),1)}개)")
+    # ★ 슬롯 수를 «행 ÷ 개체 수» 로 구하면 안 됩니다. 카메라마다 개체 수가
+    #   다르므로(.151 75 · .152 32) 마지막 카메라의 개체 수로 전체를 나누게
+    #   되어 과대 집계됩니다 — 실제 447 을 722 로 찍고 있었습니다.
+    slots_in = {(r["카메라"], r["날짜"], r["시각"]) for r in rows}
+    days_in = {(r["카메라"], r["날짜"]) for r in rows}
+    print(f"\n  저장  {p1}  ({len(rows)}행 · 카메라-일 {len(days_in)}개"
+          f" · 슬롯 {len(slots_in)}개)")
     print(f"        {p2}  (날짜별 판정 {len(summary)}행)")
     print(f"        {p3}  (개체별 요약 {len(orows)}행)")
     return 0

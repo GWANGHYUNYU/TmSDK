@@ -11,7 +11,8 @@ After downloading the code, please refer to the **'Document/TmSDK Manual.pdf'** 
 > **수직농장 AI 기반 작물 개체별 VPD 모니터링 및 환경 제어 시스템** 과제를
 > 위해 추가한 부분입니다. 원본 SDK 내용은 이 절 아래에 그대로 있습니다.
 
-**처음 오셨다면 [`docs/README.md`](docs/README.md) 부터 읽으십시오.**
+**처음 오셨다면 [`docs/HANDOFF.md`](docs/HANDOFF.md) 부터 읽으십시오** — 전체
+지도와 다음 할 일이 한 장에 있습니다. 그다음은 [`docs/README.md`](docs/README.md).
 문서 폴더만으로 프로젝트 전체를 이해하고 작업을 이어갈 수 있게 구성했습니다.
 
 ### 폴더
